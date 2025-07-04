@@ -1,17 +1,17 @@
 
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { FileText, CreditCard, HelpCircle, Plus, Download, Share2 } from 'lucide-react';
-import { toast } from "@/hooks/use-toast";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BookOpen, FileText, HelpCircle, Sparkles, Brain, Download } from 'lucide-react';
+import { useToast } from "@/hooks/use-toast";
 
 interface StudyMaterial {
   id: string;
-  type: 'summary' | 'flashcards' | 'quiz';
+  type: 'summary' | 'flashcard' | 'quiz';
   title: string;
   content: any;
   subject: string;
@@ -19,286 +19,320 @@ interface StudyMaterial {
 }
 
 const StudyMaterialGenerator = () => {
-  const [title, setTitle] = useState('');
+  const [topic, setTopic] = useState('');
   const [subject, setSubject] = useState('');
-  const [content, setContent] = useState('');
   const [materials, setMaterials] = useState<StudyMaterial[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [activeTab, setActiveTab] = useState('generate');
+  const { toast } = useToast();
 
-  const createSummary = () => {
-    if (!title.trim()) {
+  const generateAIMaterial = async (type: 'summary' | 'flashcard' | 'quiz') => {
+    if (!topic.trim() || !subject.trim()) {
       toast({
-        title: "Error",
-        description: "Please enter a title for your summary.",
-        variant: "destructive",
+        title: "Missing Information",
+        description: "Please enter both topic and subject.",
+        variant: "destructive"
       });
       return;
     }
 
-    const summary = {
-      id: Date.now().toString(),
-      type: 'summary' as const,
-      title: `Summary: ${title}`,
-      content: {
-        text: content || 'Add your summary content here...',
-        mainPoints: []
-      },
-      subject: subject || 'General',
-      createdAt: new Date()
-    };
+    setIsGenerating(true);
 
-    setMaterials(prev => [summary, ...prev]);
-    setTitle('');
-    setContent('');
-    toast({
-      title: "Summary Created!",
-      description: `Created summary for ${title}.`,
-    });
-  };
+    try {
+      const apiKey = localStorage.getItem('openrouter_api_key');
+      if (!apiKey) {
+        toast({
+          title: "API Key Required",
+          description: "Please set your OpenRouter API key in the AI Tutor tab first.",
+          variant: "destructive"
+        });
+        setIsGenerating(false);
+        return;
+      }
 
-  const createFlashcards = () => {
-    if (!title.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter a title for your flashcards.",
-        variant: "destructive",
+      let prompt = '';
+      switch (type) {
+        case 'summary':
+          prompt = `Create a comprehensive study summary for the topic "${topic}" in ${subject}. Include key concepts, important facts, and main points. Format it clearly with headings and bullet points.`;
+          break;
+        case 'flashcard':
+          prompt = `Create 10 flashcards for the topic "${topic}" in ${subject}. Format as JSON array with "question" and "answer" fields. Focus on key concepts and definitions.`;
+          break;
+        case 'quiz':
+          prompt = `Create a 5-question multiple choice quiz about "${topic}" in ${subject}. Format as JSON array with "question", "options" (array of 4 choices), "correct" (index of correct answer), and "explanation" fields.`;
+          break;
+      }
+
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "HTTP-Referer": window.location.origin,
+          "X-Title": "AI Learning Assistant",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          "model": "deepseek/deepseek-r1:free",
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are an educational content generator. Create high-quality study materials that are accurate, well-structured, and educational."
+            },
+            {
+              "role": "user",
+              "content": prompt
+            }
+          ]
+        })
       });
-      return;
-    }
 
-    const flashcards = {
-      id: Date.now().toString(),
-      type: 'flashcards' as const,
-      title: `Flashcards: ${title}`,
-      content: {
-        cards: [
-          { front: 'Sample Question 1', back: 'Sample Answer 1' },
-          { front: 'Sample Question 2', back: 'Sample Answer 2' }
-        ]
-      },
-      subject: subject || 'General',
-      createdAt: new Date()
-    };
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content || "Failed to generate content.";
 
-    setMaterials(prev => [flashcards, ...prev]);
-    setTitle('');
-    setContent('');
-    toast({
-      title: "Flashcards Created!",
-      description: `Created flashcards for ${title}.`,
-    });
-  };
-
-  const createQuiz = () => {
-    if (!title.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter a title for your quiz.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const quiz = {
-      id: Date.now().toString(),
-      type: 'quiz' as const,
-      title: `Quiz: ${title}`,
-      content: {
-        questions: [
-          {
-            question: 'Sample question about ' + title,
-            options: ['Option A', 'Option B', 'Option C', 'Option D'],
-            correct: 0,
-            explanation: 'This is a sample explanation.'
+      let parsedContent;
+      if (type === 'flashcard' || type === 'quiz') {
+        try {
+          // Try to extract JSON from the response
+          const jsonMatch = content.match(/\[[\s\S]*\]/);
+          if (jsonMatch) {
+            parsedContent = JSON.parse(jsonMatch[0]);
+          } else {
+            parsedContent = content;
           }
-        ]
-      },
-      subject: subject || 'General',
-      createdAt: new Date()
-    };
+        } catch {
+          parsedContent = content;
+        }
+      } else {
+        parsedContent = content;
+      }
 
-    setMaterials(prev => [quiz, ...prev]);
-    setTitle('');
-    setContent('');
-    toast({
-      title: "Quiz Created!",
-      description: `Created quiz for ${title}.`,
-    });
+      const newMaterial: StudyMaterial = {
+        id: Date.now().toString(),
+        type,
+        title: `${type.charAt(0).toUpperCase() + type.slice(1)}: ${topic}`,
+        content: parsedContent,
+        subject,
+        createdAt: new Date()
+      };
+
+      setMaterials(prev => [newMaterial, ...prev]);
+      setActiveTab('materials');
+      
+      toast({
+        title: "Material Generated!",
+        description: `${type.charAt(0).toUpperCase() + type.slice(1)} created successfully.`,
+      });
+
+    } catch (error) {
+      console.error('Error generating material:', error);
+      toast({
+        title: "Generation Failed",
+        description: "Failed to generate study material. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
-  const renderSummary = (material: StudyMaterial) => (
-    <div className="space-y-4">
-      <div className="bg-gray-50 p-4 rounded-lg">
-        <p className="text-sm whitespace-pre-wrap">{material.content.text}</p>
-      </div>
-    </div>
-  );
-
-  const renderFlashcards = (material: StudyMaterial) => (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {material.content.cards.map((card: any, index: number) => (
-        <div key={index} className="bg-gradient-to-br from-blue-50 to-purple-50 p-4 rounded-lg border">
-          <div className="space-y-3">
-            <div>
-              <h5 className="font-medium text-blue-700 mb-2">Question {index + 1}:</h5>
-              <p className="text-sm">{card.front}</p>
+  const renderMaterial = (material: StudyMaterial) => {
+    switch (material.type) {
+      case 'summary':
+        return (
+          <div className="prose max-w-none">
+            <pre className="whitespace-pre-wrap text-sm">{material.content}</pre>
+          </div>
+        );
+      
+      case 'flashcard':
+        if (Array.isArray(material.content)) {
+          return (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {material.content.map((card: any, index: number) => (
+                <Card key={index} className="p-4">
+                  <div className="text-sm font-medium text-blue-600 mb-2">Question {index + 1}</div>
+                  <div className="font-medium mb-2">{card.question}</div>
+                  <div className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
+                    <strong>Answer:</strong> {card.answer}
+                  </div>
+                </Card>
+              ))}
             </div>
-            <div className="border-t pt-3">
-              <h5 className="font-medium text-purple-700 mb-2">Answer:</h5>
-              <p className="text-sm">{card.back}</p>
+          );
+        } else {
+          return <pre className="whitespace-pre-wrap text-sm">{material.content}</pre>;
+        }
+      
+      case 'quiz':
+        if (Array.isArray(material.content)) {
+          return (
+            <div className="space-y-6">
+              {material.content.map((question: any, index: number) => (
+                <Card key={index} className="p-4">
+                  <div className="font-medium mb-3">
+                    {index + 1}. {question.question}
+                  </div>
+                  <div className="grid grid-cols-1 gap-2 mb-3">
+                    {question.options?.map((option: string, optIndex: number) => (
+                      <div
+                        key={optIndex}
+                        className={`p-2 rounded border text-sm ${
+                          optIndex === question.correct
+                            ? 'bg-green-50 border-green-200 text-green-800'
+                            : 'bg-gray-50 border-gray-200'
+                        }`}
+                      >
+                        {String.fromCharCode(65 + optIndex)}. {option}
+                      </div>
+                    ))}
+                  </div>
+                  {question.explanation && (
+                    <div className="text-xs text-gray-600 bg-blue-50 p-2 rounded">
+                      <strong>Explanation:</strong> {question.explanation}
+                    </div>
+                  )}
+                </Card>
+              ))}
             </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-
-  const renderQuiz = (material: StudyMaterial) => (
-    <div className="space-y-6">
-      {material.content.questions.map((q: any, index: number) => (
-        <div key={index} className="bg-gray-50 p-4 rounded-lg">
-          <h5 className="font-medium mb-3">Question {index + 1}: {q.question}</h5>
-          <div className="space-y-2 mb-3">
-            {q.options.map((option: string, optIndex: number) => (
-              <div key={optIndex} className={`p-2 rounded ${optIndex === q.correct ? 'bg-green-100 border border-green-300' : 'bg-white border'}`}>
-                <span className="text-sm">{String.fromCharCode(65 + optIndex)}. {option}</span>
-                {optIndex === q.correct && <Badge className="ml-2 bg-green-600">Correct</Badge>}
-              </div>
-            ))}
-          </div>
-          <div className="text-sm text-gray-600">
-            <strong>Explanation:</strong> {q.explanation}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
+          );
+        } else {
+          return <pre className="whitespace-pre-wrap text-sm">{material.content}</pre>;
+        }
+      
+      default:
+        return <div>Unknown material type</div>;
+    }
+  };
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Plus className="w-5 h-5 text-purple-600" />
-            <span>Create Study Materials</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4 mb-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Title</label>
-                <Input
-                  placeholder="Enter title for your study material"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Subject</label>
-                <Select value={subject} onValueChange={setSubject}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select subject" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Mathematics">Mathematics</SelectItem>
-                    <SelectItem value="Science">Science</SelectItem>
-                    <SelectItem value="History">History</SelectItem>
-                    <SelectItem value="Literature">Literature</SelectItem>
-                    <SelectItem value="Geography">Geography</SelectItem>
-                    <SelectItem value="Physics">Physics</SelectItem>
-                    <SelectItem value="Chemistry">Chemistry</SelectItem>
-                    <SelectItem value="Biology">Biology</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium mb-2">Content (Optional)</label>
-              <Textarea
-                placeholder="Add any additional content or notes..."
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                rows={3}
-              />
-            </div>
-          </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="generate">Generate Materials</TabsTrigger>
+          <TabsTrigger value="materials">My Materials ({materials.length})</TabsTrigger>
+        </TabsList>
 
-          <div className="flex flex-wrap gap-3">
-            <Button
-              onClick={createSummary}
-              className="bg-gradient-to-r from-blue-600 to-blue-700"
-            >
-              <FileText className="w-4 h-4 mr-2" />
-              Create Summary
-            </Button>
-            <Button
-              onClick={createFlashcards}
-              className="bg-gradient-to-r from-green-600 to-green-700"
-            >
-              <CreditCard className="w-4 h-4 mr-2" />
-              Create Flashcards
-            </Button>
-            <Button
-              onClick={createQuiz}
-              className="bg-gradient-to-r from-purple-600 to-purple-700"
-            >
-              <HelpCircle className="w-4 h-4 mr-2" />
-              Create Quiz
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="grid grid-cols-1 gap-6">
-        {materials.map((material) => (
-          <Card key={material.id}>
+        <TabsContent value="generate">
+          <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg flex items-center justify-center">
-                    {material.type === 'summary' && <FileText className="w-5 h-5 text-white" />}
-                    {material.type === 'flashcards' && <CreditCard className="w-5 h-5 text-white" />}
-                    {material.type === 'quiz' && <HelpCircle className="w-5 h-5 text-white" />}
-                  </div>
-                  <div>
-                    <CardTitle className="text-lg">{material.title}</CardTitle>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <Badge variant="secondary">{material.subject}</Badge>
-                      <span className="text-sm text-gray-500">
-                        {material.createdAt.toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
+              <CardTitle className="flex items-center space-x-2">
+                <Sparkles className="w-6 h-6 text-purple-600" />
+                <span>AI Study Material Generator</span>
+              </CardTitle>
+              <CardDescription>
+                Generate personalized study materials using AI. Enter your topic and subject to get started.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Subject</label>
+                  <Input
+                    placeholder="e.g., Mathematics, Biology, History"
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                  />
                 </div>
-                <div className="flex space-x-2">
-                  <Button size="sm" variant="outline">
-                    <Download className="w-4 h-4" />
-                  </Button>
-                  <Button size="sm" variant="outline">
-                    <Share2 className="w-4 h-4" />
-                  </Button>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Topic</label>
+                  <Input
+                    placeholder="e.g., Photosynthesis, World War II"
+                    value={topic}
+                    onChange={(e) => setTopic(e.target.value)}
+                  />
                 </div>
               </div>
-            </CardHeader>
-            <CardContent>
-              {material.type === 'summary' && renderSummary(material)}
-              {material.type === 'flashcards' && renderFlashcards(material)}
-              {material.type === 'quiz' && renderQuiz(material)}
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Button
+                  onClick={() => generateAIMaterial('summary')}
+                  disabled={isGenerating}
+                  className="flex items-center space-x-2 h-auto p-4 flex-col"
+                  variant="outline"
+                >
+                  <FileText className="w-8 h-8 text-blue-600 mb-2" />
+                  <span className="font-medium">Generate Summary</span>
+                  <span className="text-xs text-gray-500 text-center">
+                    Comprehensive overview with key points
+                  </span>
+                </Button>
+
+                <Button
+                  onClick={() => generateAIMaterial('flashcard')}
+                  disabled={isGenerating}
+                  className="flex items-center space-x-2 h-auto p-4 flex-col"
+                  variant="outline"
+                >
+                  <Brain className="w-8 h-8 text-green-600 mb-2" />
+                  <span className="font-medium">Create Flashcards</span>
+                  <span className="text-xs text-gray-500 text-center">
+                    Interactive cards for quick review
+                  </span>
+                </Button>
+
+                <Button
+                  onClick={() => generateAIMaterial('quiz')}
+                  disabled={isGenerating}
+                  className="flex items-center space-x-2 h-auto p-4 flex-col"
+                  variant="outline"
+                >
+                  <HelpCircle className="w-8 h-8 text-purple-600 mb-2" />
+                  <span className="font-medium">Generate Quiz</span>
+                  <span className="text-xs text-gray-500 text-center">
+                    Test your knowledge with questions
+                  </span>
+                </Button>
+              </div>
+
+              {isGenerating && (
+                <div className="text-center py-8">
+                  <div className="inline-flex items-center space-x-2">
+                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                    <span>Generating AI content...</span>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
-        ))}
-      </div>
+        </TabsContent>
 
-      {materials.length === 0 && (
-        <Card>
-          <CardContent className="text-center py-12">
-            <Plus className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No materials created yet</h3>
-            <p className="text-gray-600 mb-4">Create your first study material using the form above!</p>
-          </CardContent>
-        </Card>
-      )}
+        <TabsContent value="materials">
+          <div className="space-y-4">
+            {materials.length === 0 ? (
+              <Card>
+                <CardContent className="text-center py-12">
+                  <BookOpen className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Materials Yet</h3>
+                  <p className="text-gray-500 mb-4">Generate some study materials to get started!</p>
+                  <Button onClick={() => setActiveTab('generate')}>
+                    Generate Materials
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              materials.map((material) => (
+                <Card key={material.id}>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">{material.title}</CardTitle>
+                      <div className="flex items-center space-x-2">
+                        <Badge variant="secondary">{material.subject}</Badge>
+                        <Badge variant="outline">{material.type}</Badge>
+                      </div>
+                    </div>
+                    <CardDescription>
+                      Created on {material.createdAt.toLocaleDateString()}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {renderMaterial(material)}
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

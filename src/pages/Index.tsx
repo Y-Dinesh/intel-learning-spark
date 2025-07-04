@@ -4,11 +4,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { BookOpen, BarChart3, Trophy, Target, Clock } from 'lucide-react';
+import { BookOpen, BarChart3, Trophy, Target, Clock, Bot } from 'lucide-react';
 import StudyMaterialGenerator from '@/components/learning/StudyMaterialGenerator';
 import ProgressDashboard from '@/components/learning/ProgressDashboard';
 import QuizSystem from '@/components/learning/QuizSystem';
 import LearningPath from '@/components/learning/LearningPath';
+import AITutor from '@/components/learning/AITutor';
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -40,8 +41,8 @@ const Index = () => {
                 <BookOpen className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">LearnHub</h1>
-                <p className="text-sm text-gray-600">Your Personal Learning Platform</p>
+                <h1 className="text-xl font-bold text-gray-900">AI LearnHub</h1>
+                <p className="text-sm text-gray-600">Your AI-Powered Learning Platform</p>
               </div>
             </div>
             <div className="flex items-center space-x-4">
@@ -60,10 +61,14 @@ const Index = () => {
 
       <div className="container mx-auto px-4 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:grid-cols-5">
             <TabsTrigger value="dashboard" className="flex items-center space-x-2">
               <BarChart3 className="w-4 h-4" />
               <span className="hidden sm:inline">Dashboard</span>
+            </TabsTrigger>
+            <TabsTrigger value="tutor" className="flex items-center space-x-2">
+              <Bot className="w-4 h-4" />
+              <span className="hidden sm:inline">AI Tutor</span>
             </TabsTrigger>
             <TabsTrigger value="materials" className="flex items-center space-x-2">
               <BookOpen className="w-4 h-4" />
@@ -168,6 +173,10 @@ const Index = () => {
             </div>
 
             <ProgressDashboard />
+          </TabsContent>
+
+          <TabsContent value="tutor">
+            <AITutor />
           </TabsContent>
 
           <TabsContent value="materials">
