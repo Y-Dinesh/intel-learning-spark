@@ -1,12 +1,10 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BookOpen, FileText, HelpCircle, Sparkles, Brain, Download } from 'lucide-react';
+import { BookOpen, FileText, HelpCircle, Sparkles, Brain } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 
 interface StudyMaterial {
@@ -26,6 +24,9 @@ const StudyMaterialGenerator = () => {
   const [activeTab, setActiveTab] = useState('generate');
   const { toast } = useToast();
 
+  // TODO: Replace with your actual OpenRouter API key
+  const API_KEY = "YOUR_OPENROUTER_API_KEY_HERE";
+
   const generateAIMaterial = async (type: 'summary' | 'flashcard' | 'quiz') => {
     if (!topic.trim() || !subject.trim()) {
       toast({
@@ -39,17 +40,6 @@ const StudyMaterialGenerator = () => {
     setIsGenerating(true);
 
     try {
-      const apiKey = localStorage.getItem('openrouter_api_key');
-      if (!apiKey) {
-        toast({
-          title: "API Key Required",
-          description: "Please set your OpenRouter API key in the AI Tutor tab first.",
-          variant: "destructive"
-        });
-        setIsGenerating(false);
-        return;
-      }
-
       let prompt = '';
       switch (type) {
         case 'summary':
@@ -66,7 +56,7 @@ const StudyMaterialGenerator = () => {
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${apiKey}`,
+          "Authorization": `Bearer ${API_KEY}`,
           "HTTP-Referer": window.location.origin,
           "X-Title": "AI Learning Assistant",
           "Content-Type": "application/json"
@@ -127,7 +117,7 @@ const StudyMaterialGenerator = () => {
       console.error('Error generating material:', error);
       toast({
         title: "Generation Failed",
-        description: "Failed to generate study material. Please try again.",
+        description: "Failed to generate study material. Please check your API key and internet connection.",
         variant: "destructive"
       });
     } finally {

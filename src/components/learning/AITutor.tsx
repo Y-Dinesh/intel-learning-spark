@@ -26,10 +26,11 @@ const AITutor = () => {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [apiKey, setApiKey] = useState('');
-  const [showApiKeyInput, setShowApiKeyInput] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  // TODO: Replace with your actual OpenRouter API key
+  const API_KEY = "YOUR_OPENROUTER_API_KEY_HERE";
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -45,19 +46,8 @@ const AITutor = () => {
     { text: "Summarize history topic", icon: BookOpen },
   ];
 
-  const handleApiKeySubmit = () => {
-    if (apiKey.trim()) {
-      setShowApiKeyInput(false);
-      localStorage.setItem('openrouter_api_key', apiKey);
-      toast({
-        title: "API Key Set",
-        description: "You can now start chatting with the AI tutor!",
-      });
-    }
-  };
-
   const askQuestion = async (question: string) => {
-    if (!question.trim() || !apiKey) return;
+    if (!question.trim()) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -74,7 +64,7 @@ const AITutor = () => {
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${apiKey}`,
+          "Authorization": `Bearer ${API_KEY}`,
           "HTTP-Referer": window.location.origin,
           "X-Title": "AI Learning Assistant",
           "Content-Type": "application/json"
@@ -113,7 +103,7 @@ const AITutor = () => {
       console.error('Error calling OpenRouter API:', error);
       toast({
         title: "Error",
-        description: "Failed to get response from AI. Please check your API key and try again.",
+        description: "Failed to get response from AI. Please check your API key and internet connection.",
         variant: "destructive"
       });
     } finally {
@@ -129,46 +119,6 @@ const AITutor = () => {
   const handleQuickPrompt = (prompt: string) => {
     askQuestion(prompt);
   };
-
-  // Load API key from localStorage on component mount
-  useEffect(() => {
-    const savedApiKey = localStorage.getItem('openrouter_api_key');
-    if (savedApiKey) {
-      setApiKey(savedApiKey);
-      setShowApiKeyInput(false);
-    }
-  }, []);
-
-  if (showApiKeyInput) {
-    return (
-      <Card className="max-w-md mx-auto">
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Bot className="w-6 h-6 text-blue-600" />
-            <span>Setup AI Tutor</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-gray-600">
-            Enter your OpenRouter API key to start chatting with the AI tutor. You can get a free API key from{' '}
-            <a href="https://openrouter.ai" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-              OpenRouter.ai
-            </a>
-          </p>
-          <Input
-            type="password"
-            placeholder="Enter your OpenRouter API key"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleApiKeySubmit()}
-          />
-          <Button onClick={handleApiKeySubmit} className="w-full">
-            Save API Key
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -268,16 +218,6 @@ const AITutor = () => {
           </div>
         </CardContent>
       </Card>
-      
-      <div className="text-center">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowApiKeyInput(true)}
-        >
-          Change API Key
-        </Button>
-      </div>
     </div>
   );
 };
