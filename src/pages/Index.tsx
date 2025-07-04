@@ -1,12 +1,10 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { BookOpen, Brain, MessageSquare, BarChart3, Trophy, Zap, Target, Clock } from 'lucide-react';
-import AITutor from '@/components/learning/AITutor';
+import { BookOpen, BarChart3, Trophy, Target, Clock } from 'lucide-react';
 import StudyMaterialGenerator from '@/components/learning/StudyMaterialGenerator';
 import ProgressDashboard from '@/components/learning/ProgressDashboard';
 import QuizSystem from '@/components/learning/QuizSystem';
@@ -39,11 +37,11 @@ const Index = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl flex items-center justify-center">
-                <Brain className="w-6 h-6 text-white" />
+                <BookOpen className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">LearnAI</h1>
-                <p className="text-sm text-gray-600">Your Personal Learning Assistant</p>
+                <h1 className="text-xl font-bold text-gray-900">LearnHub</h1>
+                <p className="text-sm text-gray-600">Your Personal Learning Platform</p>
               </div>
             </div>
             <div className="flex items-center space-x-4">
@@ -52,7 +50,7 @@ const Index = () => {
                 {userProgress.totalXP} XP
               </Badge>
               <Badge variant="secondary" className="bg-orange-100 text-orange-800">
-                <Zap className="w-4 h-4 mr-1" />
+                <Target className="w-4 h-4 mr-1" />
                 {userProgress.currentStreak} day streak
               </Badge>
             </div>
@@ -62,14 +60,10 @@ const Index = () => {
 
       <div className="container mx-auto px-4 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:grid-cols-5">
+          <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:grid-cols-4">
             <TabsTrigger value="dashboard" className="flex items-center space-x-2">
               <BarChart3 className="w-4 h-4" />
               <span className="hidden sm:inline">Dashboard</span>
-            </TabsTrigger>
-            <TabsTrigger value="chat" className="flex items-center space-x-2">
-              <MessageSquare className="w-4 h-4" />
-              <span className="hidden sm:inline">AI Tutor</span>
             </TabsTrigger>
             <TabsTrigger value="materials" className="flex items-center space-x-2">
               <BookOpen className="w-4 h-4" />
@@ -174,10 +168,6 @@ const Index = () => {
             </div>
 
             <ProgressDashboard />
-          </TabsContent>
-
-          <TabsContent value="chat">
-            <AITutor />
           </TabsContent>
 
           <TabsContent value="materials">

@@ -6,8 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, CreditCard, HelpCircle, Wand2, Download, Share2 } from 'lucide-react';
+import { FileText, CreditCard, HelpCircle, Plus, Download, Share2 } from 'lucide-react';
 import { toast } from "@/hooks/use-toast";
 
 interface StudyMaterial {
@@ -20,95 +19,60 @@ interface StudyMaterial {
 }
 
 const StudyMaterialGenerator = () => {
-  const [topic, setTopic] = useState('');
+  const [title, setTitle] = useState('');
   const [subject, setSubject] = useState('');
-  const [difficulty, setDifficulty] = useState('');
-  const [textContent, setTextContent] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [content, setContent] = useState('');
   const [materials, setMaterials] = useState<StudyMaterial[]>([]);
 
-  const generateSummary = async () => {
-    if (!topic.trim()) {
+  const createSummary = () => {
+    if (!title.trim()) {
       toast({
         title: "Error",
-        description: "Please enter a topic to generate a summary.",
+        description: "Please enter a title for your summary.",
         variant: "destructive",
       });
       return;
     }
 
-    setIsGenerating(true);
-    await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate AI processing
-
     const summary = {
       id: Date.now().toString(),
       type: 'summary' as const,
-      title: `Summary: ${topic}`,
+      title: `Summary: ${title}`,
       content: {
-        mainPoints: [
-          `Key concept 1 about ${topic}: This fundamental principle explains the basic mechanics and underlying theory.`,
-          `Key concept 2 about ${topic}: Understanding this helps connect the topic to real-world applications.`,
-          `Key concept 3 about ${topic}: This advanced concept builds upon the foundational knowledge.`,
-          `Practical applications: How ${topic} is used in everyday situations and professional contexts.`,
-          `Common misconceptions: Important clarifications about ${topic} that students often misunderstand.`
-        ],
-        keyTerms: [
-          { term: 'Primary Term', definition: `The most important concept in ${topic} studies.` },
-          { term: 'Secondary Concept', definition: `A supporting idea that enhances understanding of ${topic}.` },
-          { term: 'Advanced Principle', definition: `A complex aspect of ${topic} for deeper learning.` }
-        ]
+        text: content || 'Add your summary content here...',
+        mainPoints: []
       },
       subject: subject || 'General',
       createdAt: new Date()
     };
 
     setMaterials(prev => [summary, ...prev]);
-    setIsGenerating(false);
+    setTitle('');
+    setContent('');
     toast({
-      title: "Summary Generated!",
-      description: `Created a comprehensive summary for ${topic}.`,
+      title: "Summary Created!",
+      description: `Created summary for ${title}.`,
     });
   };
 
-  const generateFlashcards = async () => {
-    if (!topic.trim()) {
+  const createFlashcards = () => {
+    if (!title.trim()) {
       toast({
         title: "Error",
-        description: "Please enter a topic to generate flashcards.",
+        description: "Please enter a title for your flashcards.",
         variant: "destructive",
       });
       return;
     }
 
-    setIsGenerating(true);
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
     const flashcards = {
       id: Date.now().toString(),
       type: 'flashcards' as const,
-      title: `Flashcards: ${topic}`,
+      title: `Flashcards: ${title}`,
       content: {
         cards: [
-          {
-            front: `What is the primary principle of ${topic}?`,
-            back: `The primary principle involves understanding the fundamental concepts that govern how ${topic} works in practice.`
-          },
-          {
-            front: `How does ${topic} apply to real-world situations?`,
-            back: `${topic} is commonly used in various fields including science, technology, and everyday problem-solving scenarios.`
-          },
-          {
-            front: `What are the key components of ${topic}?`,
-            back: `The main components include theoretical foundations, practical applications, and analytical methods.`
-          },
-          {
-            front: `Why is ${topic} important to study?`,
-            back: `Understanding ${topic} provides critical thinking skills and knowledge applicable to many academic and professional areas.`
-          },
-          {
-            front: `What are common mistakes when learning ${topic}?`,
-            back: `Students often confuse basic concepts or skip foundational knowledge before advancing to complex topics.`
-          }
+          { front: 'Sample Question 1', back: 'Sample Answer 1' },
+          { front: 'Sample Question 2', back: 'Sample Answer 2' }
         ]
       },
       subject: subject || 'General',
@@ -116,64 +80,35 @@ const StudyMaterialGenerator = () => {
     };
 
     setMaterials(prev => [flashcards, ...prev]);
-    setIsGenerating(false);
+    setTitle('');
+    setContent('');
     toast({
-      title: "Flashcards Generated!",
-      description: `Created ${flashcards.content.cards.length} flashcards for ${topic}.`,
+      title: "Flashcards Created!",
+      description: `Created flashcards for ${title}.`,
     });
   };
 
-  const generateQuiz = async () => {
-    if (!topic.trim()) {
+  const createQuiz = () => {
+    if (!title.trim()) {
       toast({
         title: "Error",
-        description: "Please enter a topic to generate a quiz.",
+        description: "Please enter a title for your quiz.",
         variant: "destructive",
       });
       return;
     }
 
-    setIsGenerating(true);
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
     const quiz = {
       id: Date.now().toString(),
       type: 'quiz' as const,
-      title: `Quiz: ${topic}`,
+      title: `Quiz: ${title}`,
       content: {
         questions: [
           {
-            question: `Which of the following best describes ${topic}?`,
-            options: [
-              'A complex theoretical framework',
-              'A practical application method',
-              'A fundamental principle with wide applications',
-              'A specialized technical concept'
-            ],
-            correct: 2,
-            explanation: `${topic} is best understood as a fundamental principle that has wide-ranging applications across multiple fields.`
-          },
-          {
-            question: `What is the most important aspect to remember about ${topic}?`,
-            options: [
-              'Its historical development',
-              'Its mathematical formulation',
-              'Its practical applications',
-              'Its theoretical foundations'
-            ],
-            correct: 3,
-            explanation: `Understanding the theoretical foundations is crucial for mastering ${topic} and its applications.`
-          },
-          {
-            question: `How does ${topic} relate to other concepts in ${subject}?`,
-            options: [
-              'It stands completely independent',
-              'It builds upon basic principles',
-              'It contradicts other theories',
-              'It only applies in specific cases'
-            ],
-            correct: 1,
-            explanation: `${topic} builds upon and connects with other fundamental principles in ${subject}.`
+            question: 'Sample question about ' + title,
+            options: ['Option A', 'Option B', 'Option C', 'Option D'],
+            correct: 0,
+            explanation: 'This is a sample explanation.'
           }
         ]
       },
@@ -182,36 +117,18 @@ const StudyMaterialGenerator = () => {
     };
 
     setMaterials(prev => [quiz, ...prev]);
-    setIsGenerating(false);
+    setTitle('');
+    setContent('');
     toast({
-      title: "Quiz Generated!",
-      description: `Created a ${quiz.content.questions.length}-question quiz for ${topic}.`,
+      title: "Quiz Created!",
+      description: `Created quiz for ${title}.`,
     });
   };
 
   const renderSummary = (material: StudyMaterial) => (
     <div className="space-y-4">
-      <div>
-        <h4 className="font-semibold mb-2">Key Points:</h4>
-        <ul className="space-y-2">
-          {material.content.mainPoints.map((point: string, index: number) => (
-            <li key={index} className="flex items-start space-x-2">
-              <span className="w-2 h-2 bg-purple-600 rounded-full mt-2 flex-shrink-0"></span>
-              <span className="text-sm">{point}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-      <div>
-        <h4 className="font-semibold mb-2">Key Terms:</h4>
-        <div className="space-y-2">
-          {material.content.keyTerms.map((term: any, index: number) => (
-            <div key={index} className="bg-gray-50 p-3 rounded-lg">
-              <h5 className="font-medium text-purple-700">{term.term}</h5>
-              <p className="text-sm text-gray-600 mt-1">{term.definition}</p>
-            </div>
-          ))}
-        </div>
+      <div className="bg-gray-50 p-4 rounded-lg">
+        <p className="text-sm whitespace-pre-wrap">{material.content.text}</p>
       </div>
     </div>
   );
@@ -261,64 +178,73 @@ const StudyMaterialGenerator = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
-            <Wand2 className="w-5 h-5 text-purple-600" />
-            <span>AI Study Material Generator</span>
+            <Plus className="w-5 h-5 text-purple-600" />
+            <span>Create Study Materials</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <div>
-              <label className="block text-sm font-medium mb-2">Topic</label>
-              <Input
-                placeholder="Enter topic (e.g., Photosynthesis, Algebra, World War II)"
-                value={topic}
-                onChange={(e) => setTopic(e.target.value)}
-              />
+          <div className="space-y-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Title</label>
+                <Input
+                  placeholder="Enter title for your study material"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Subject</label>
+                <Select value={subject} onValueChange={setSubject}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select subject" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Mathematics">Mathematics</SelectItem>
+                    <SelectItem value="Science">Science</SelectItem>
+                    <SelectItem value="History">History</SelectItem>
+                    <SelectItem value="Literature">Literature</SelectItem>
+                    <SelectItem value="Geography">Geography</SelectItem>
+                    <SelectItem value="Physics">Physics</SelectItem>
+                    <SelectItem value="Chemistry">Chemistry</SelectItem>
+                    <SelectItem value="Biology">Biology</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+            
             <div>
-              <label className="block text-sm font-medium mb-2">Subject</label>
-              <Select value={subject} onValueChange={setSubject}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select subject" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Mathematics">Mathematics</SelectItem>
-                  <SelectItem value="Science">Science</SelectItem>
-                  <SelectItem value="History">History</SelectItem>
-                  <SelectItem value="Literature">Literature</SelectItem>
-                  <SelectItem value="Geography">Geography</SelectItem>
-                  <SelectItem value="Physics">Physics</SelectItem>
-                  <SelectItem value="Chemistry">Chemistry</SelectItem>
-                  <SelectItem value="Biology">Biology</SelectItem>
-                </SelectContent>
-              </Select>
+              <label className="block text-sm font-medium mb-2">Content (Optional)</label>
+              <Textarea
+                placeholder="Add any additional content or notes..."
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                rows={3}
+              />
             </div>
           </div>
 
           <div className="flex flex-wrap gap-3">
             <Button
-              onClick={generateSummary}
-              disabled={isGenerating}
+              onClick={createSummary}
               className="bg-gradient-to-r from-blue-600 to-blue-700"
             >
               <FileText className="w-4 h-4 mr-2" />
-              {isGenerating ? 'Generating...' : 'Generate Summary'}
+              Create Summary
             </Button>
             <Button
-              onClick={generateFlashcards}
-              disabled={isGenerating}
+              onClick={createFlashcards}
               className="bg-gradient-to-r from-green-600 to-green-700"
             >
               <CreditCard className="w-4 h-4 mr-2" />
-              {isGenerating ? 'Generating...' : 'Generate Flashcards'}
+              Create Flashcards
             </Button>
             <Button
-              onClick={generateQuiz}
-              disabled={isGenerating}
+              onClick={createQuiz}
               className="bg-gradient-to-r from-purple-600 to-purple-700"
             >
               <HelpCircle className="w-4 h-4 mr-2" />
-              {isGenerating ? 'Generating...' : 'Generate Quiz'}
+              Create Quiz
             </Button>
           </div>
         </CardContent>
@@ -367,9 +293,9 @@ const StudyMaterialGenerator = () => {
       {materials.length === 0 && (
         <Card>
           <CardContent className="text-center py-12">
-            <Wand2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No materials generated yet</h3>
-            <p className="text-gray-600 mb-4">Enter a topic above and generate your first study material!</p>
+            <Plus className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No materials created yet</h3>
+            <p className="text-gray-600 mb-4">Create your first study material using the form above!</p>
           </CardContent>
         </Card>
       )}
