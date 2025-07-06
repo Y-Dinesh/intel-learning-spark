@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,6 +31,27 @@ const AITutor = () => {
   const { toast } = useToast();
   const { addStudySession } = useUserAnalytics();
 
+  const formatResponse = (text: string) => {
+    // Remove markdown formatting for clean display
+    let formatted = text
+      // Remove bold formatting
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/__(.*?)__/g, '$1')
+      // Remove italic formatting
+      .replace(/\*(.*?)\*/g, '$1')
+      .replace(/_(.*?)_/g, '$1')
+      // Remove headers
+      .replace(/^#{1,6}\s+/gm, '')
+      // Remove bullet points and list formatting
+      .replace(/^[\*\-\+]\s+/gm, '• ')
+      .replace(/^\d+\.\s+/gm, '')
+      // Clean up extra whitespace
+      .replace(/\n\s*\n\s*\n/g, '\n\n')
+      .trim();
+    
+    return formatted;
+  };
+
   const sendMessage = async () => {
     if (!input.trim()) return;
 
@@ -59,7 +79,7 @@ const AITutor = () => {
           "messages": [
             {
               "role": "system",
-              "content": "You are a helpful AI tutor. Provide clear, educational responses that help students learn. Break down complex concepts into simple explanations. Use examples when helpful. Keep responses concise but comprehensive. Format your response clearly with proper paragraphs and bullet points when needed."
+              "content": "You are a helpful AI tutor. Provide clear, educational responses that help students learn. Break down complex concepts into simple explanations. Use examples when helpful. Keep responses concise but comprehensive. Provide clean, readable text without excessive markdown formatting."
             },
             ...messages.slice(-5).map(msg => ({
               role: msg.role,
@@ -78,8 +98,8 @@ const AITutor = () => {
       const data = await response.json();
       let content = data.choices?.[0]?.message?.content || "I'm sorry, I couldn't process that request. Please try again.";
       
-      // Clean and format the response
-      content = content.trim();
+      // Format the response for clean display
+      content = formatResponse(content);
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -176,7 +196,7 @@ const AITutor = () => {
                         : 'bg-gray-100 text-gray-900'
                     }`}
                   >
-                    <div className="whitespace-pre-wrap">{message.content}</div>
+                    <div className="whitespace-pre-wrap leading-relaxed">{message.content}</div>
                     <div
                       className={`text-xs mt-2 ${
                         message.role === 'user' ? 'text-blue-200' : 'text-gray-500'

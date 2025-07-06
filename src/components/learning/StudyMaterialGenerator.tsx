@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,6 +19,27 @@ const StudyMaterialGenerator = () => {
   const { toast } = useToast();
   const { addAIMaterial } = useUserAnalytics();
 
+  const formatStudyMaterial = (text: string) => {
+    // Format the response for better readability
+    let formatted = text
+      // Clean markdown formatting but preserve structure
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/__(.*?)__/g, '$1')
+      .replace(/\*(.*?)\*/g, '$1')
+      .replace(/_(.*?)_/g, '$1')
+      // Convert headers to clean format
+      .replace(/^#{1,6}\s+(.+)$/gm, '$1\n' + '='.repeat(50))
+      // Format bullet points
+      .replace(/^[\*\-\+]\s+/gm, '• ')
+      // Format numbered lists
+      .replace(/^\d+\.\s+/gm, (match) => match)
+      // Clean up spacing
+      .replace(/\n\s*\n\s*\n/g, '\n\n')
+      .trim();
+    
+    return formatted;
+  };
+
   const generateStudyMaterial = async () => {
     if (!topic.trim() || !subject.trim()) {
       toast({
@@ -34,10 +54,10 @@ const StudyMaterialGenerator = () => {
 
     try {
       const materialPrompts = {
-        summary: `Create a comprehensive study summary about "${topic}" in ${subject} at ${difficulty} level. Structure it with clear headings, key points, and important concepts. Make it educational and easy to understand.`,
-        notes: `Create detailed study notes about "${topic}" in ${subject} at ${difficulty} level. Include definitions, examples, formulas (if applicable), and key takeaways. Format as organized notes.`,
-        flashcards: `Create 10 flashcard-style question-answer pairs about "${topic}" in ${subject} at ${difficulty} level. Format each as "Q: [question]" followed by "A: [answer]".`,
-        outline: `Create a detailed study outline for "${topic}" in ${subject} at ${difficulty} level. Use a hierarchical structure with main topics, subtopics, and key points.`
+        summary: `Create a comprehensive study summary about "${topic}" in ${subject} at ${difficulty} level. Structure it with clear headings, key points, and important concepts. Make it educational and easy to understand. Use simple, clean formatting without excessive markdown.`,
+        notes: `Create detailed study notes about "${topic}" in ${subject} at ${difficulty} level. Include definitions, examples, formulas (if applicable), and key takeaways. Format as organized notes with clear sections.`,
+        flashcards: `Create 10 flashcard-style question-answer pairs about "${topic}" in ${subject} at ${difficulty} level. Format each as "Q: [question]" followed by "A: [answer]". Keep formatting simple and clean.`,
+        outline: `Create a detailed study outline for "${topic}" in ${subject} at ${difficulty} level. Use a hierarchical structure with main topics, subtopics, and key points. Use simple formatting.`
       };
 
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -51,7 +71,7 @@ const StudyMaterialGenerator = () => {
           "messages": [
             {
               "role": "system",
-              "content": "You are an expert educational content creator. Create clear, well-structured, and informative study materials. Use proper formatting with headings, bullet points, and clear organization."
+              "content": "You are an expert educational content creator. Create clear, well-structured, and informative study materials. Use simple, clean formatting without excessive markdown. Focus on readability and educational value."
             },
             {
               "role": "user",
@@ -64,8 +84,8 @@ const StudyMaterialGenerator = () => {
       const data = await response.json();
       let content = data.choices?.[0]?.message?.content || "Failed to generate content.";
       
-      // Clean up the response formatting
-      content = content.replace(/\*\*(.*?)\*\*/g, '$1').trim();
+      // Format the content for clean display
+      content = formatStudyMaterial(content);
       
       setGeneratedContent(content);
       
@@ -215,12 +235,10 @@ const StudyMaterialGenerator = () => {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="bg-gray-50 rounded-lg p-4 border">
-              <Textarea
-                value={generatedContent}
-                readOnly
-                className="min-h-[400px] border-none bg-transparent resize-none focus:ring-0"
-              />
+            <div className="bg-gray-50 rounded-lg p-6 border">
+              <div className="whitespace-pre-wrap leading-relaxed text-gray-800 font-medium">
+                {generatedContent}
+              </div>
             </div>
             
             <div className="flex justify-end space-x-2">
