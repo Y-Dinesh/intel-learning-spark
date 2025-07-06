@@ -30,6 +30,12 @@ const Index = () => {
     { name: 'Literature', progress: 80, color: 'bg-pink-500', icon: '📖' }
   ];
 
+  // Create complete user progress data for the dashboard
+  const completeUserProgress = {
+    ...userProgress,
+    subjects: subjects
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50">
       {/* Header */}
@@ -172,7 +178,7 @@ const Index = () => {
               </Card>
             </div>
 
-            <ProgressDashboard />
+            <ProgressDashboard userProgress={completeUserProgress} />
           </TabsContent>
 
           <TabsContent value="tutor">
