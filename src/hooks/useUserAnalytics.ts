@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 
 interface UserActivity {
@@ -160,6 +159,39 @@ export const useUserAnalytics = () => {
     }));
   };
 
+  const addStudySession = (subject: string, duration: number) => {
+    const today = new Date().toDateString();
+    const xpEarned = Math.floor(duration * 20); // 20 XP per hour
+    
+    setUserActivity(prev => {
+      const todayActivity = prev.dailyActivity.find(day => day.date === today);
+      const updatedDailyActivity = todayActivity 
+        ? prev.dailyActivity.map(day => 
+            day.date === today 
+              ? { 
+                  ...day, 
+                  hoursStudied: day.hoursStudied + duration,
+                  xpEarned: day.xpEarned + xpEarned
+                }
+              : day
+          )
+        : [...prev.dailyActivity, {
+            date: today,
+            hoursStudied: duration,
+            xpEarned,
+            lessonsCompleted: 0
+          }];
+      
+      return {
+        ...prev,
+        totalXP: prev.totalXP + xpEarned,
+        dailyActivity: updatedDailyActivity
+      };
+    });
+    
+    updateStreak();
+  };
+
   const completeLesson = (subject: string) => {
     const xpEarned = 25;
     const today = new Date().toDateString();
@@ -275,6 +307,7 @@ export const useUserAnalytics = () => {
     userActivity,
     addQuizScore,
     addAIMaterial,
+    addStudySession,
     completeLesson,
     updateStreak,
     getWeeklyData,

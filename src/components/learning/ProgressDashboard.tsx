@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -48,11 +47,25 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ userProgress }) =
   const weeklyData = getWeeklyData();
   const performanceData = getPerformanceData();
 
-  // Convert subject data for pie chart with real colors
+  // Helper function to format hours and minutes
+  const formatHoursMinutes = (totalHours: number) => {
+    const hours = Math.floor(totalHours);
+    const minutes = Math.round((totalHours - hours) * 60);
+    if (hours === 0) {
+      return `${minutes}min`;
+    } else if (minutes === 0) {
+      return `${hours}h`;
+    } else {
+      return `${hours}h ${minutes}min`;
+    }
+  };
+
+  // Convert subject data for pie chart with proper time formatting and colors
   const subjectData = userProgress.subjects.map(subject => ({
     subject: subject.name,
-    hours: (subject.progress / 100) * 10,
-    fill: subject.color
+    hours: (subject.progress / 100) * 10, // Convert progress to hours studied
+    fill: subject.color,
+    formattedTime: formatHoursMinutes((subject.progress / 100) * 10)
   }));
 
   // Calculate achievements based on real progress
@@ -219,13 +232,18 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ userProgress }) =
                   cy="50%"
                   outerRadius={80}
                   dataKey="hours"
-                  label={({ subject, hours }) => `${subject}: ${hours.toFixed(1)}h`}
+                  label={({ subject, formattedTime }) => `${subject}: ${formattedTime}`}
                 >
                   {subjectData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.fill} />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip 
+                  formatter={(value: number, name: string) => [
+                    formatHoursMinutes(value), 
+                    name
+                  ]}
+                />
               </PieChart>
             </ResponsiveContainer>
           </CardContent>
