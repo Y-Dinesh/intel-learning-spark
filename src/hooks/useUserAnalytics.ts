@@ -22,12 +22,20 @@ interface UserActivity {
     score: number;
     totalQuestions: number;
     date: Date;
+    isAIGenerated?: boolean;
   }>;
   dailyActivity: Array<{
     date: string;
     hoursStudied: number;
     xpEarned: number;
     lessonsCompleted: number;
+  }>;
+  aiMaterialsGenerated: Array<{
+    subject: string;
+    topic: string;
+    date: Date;
+    type: 'study_material' | 'quiz';
+    performance?: number;
   }>;
   lastActiveDate: string;
 }
@@ -45,6 +53,10 @@ export const useUserAnalytics = () => {
           ...score,
           date: new Date(score.date)
         })) || [],
+        aiMaterialsGenerated: parsed.aiMaterialsGenerated?.map((material: any) => ({
+          ...material,
+          date: new Date(material.date)
+        })) || [],
         dailyActivity: parsed.dailyActivity || []
       };
     }
@@ -58,13 +70,14 @@ export const useUserAnalytics = () => {
       weeklyGoal: 5,
       weeklyCompleted: 0,
       subjects: [
-        { name: 'Mathematics', progress: 0, color: 'bg-blue-500', icon: '📊', lessonsCompleted: 0, totalLessons: 25 },
-        { name: 'Science', progress: 0, color: 'bg-green-500', icon: '🔬', lessonsCompleted: 0, totalLessons: 25 },
-        { name: 'History', progress: 0, color: 'bg-purple-500', icon: '📚', lessonsCompleted: 0, totalLessons: 25 },
-        { name: 'Literature', progress: 0, color: 'bg-pink-500', icon: '📖', lessonsCompleted: 0, totalLessons: 25 }
+        { name: 'Mathematics', progress: 0, color: '#3B82F6', icon: '📊', lessonsCompleted: 0, totalLessons: 25 },
+        { name: 'Science', progress: 0, color: '#10B981', icon: '🔬', lessonsCompleted: 0, totalLessons: 25 },
+        { name: 'History', progress: 0, color: '#8B5CF6', icon: '📚', lessonsCompleted: 0, totalLessons: 25 },
+        { name: 'Literature', progress: 0, color: '#EC4899', icon: '📖', lessonsCompleted: 0, totalLessons: 25 }
       ],
       quizScores: [],
       dailyActivity: [],
+      aiMaterialsGenerated: [],
       lastActiveDate: new Date().toDateString()
     };
   });
@@ -79,14 +92,14 @@ export const useUserAnalytics = () => {
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toDateString();
     
     if (lastActive === today) {
-      return; // Already active today
+      return;
     }
     
     let newStreak = userActivity.currentStreak;
     if (lastActive === yesterday) {
-      newStreak += 1; // Consecutive day
+      newStreak += 1;
     } else if (lastActive !== today) {
-      newStreak = 1; // Reset streak
+      newStreak = 1;
     }
     
     setUserActivity(prev => ({
@@ -96,8 +109,8 @@ export const useUserAnalytics = () => {
     }));
   };
 
-  const addQuizScore = (subject: string, score: number, totalQuestions: number) => {
-    const xpEarned = score * 10; // 10 XP per correct answer
+  const addQuizScore = (subject: string, score: number, totalQuestions: number, isAIGenerated: boolean = false) => {
+    const xpEarned = score * 10;
     const today = new Date().toDateString();
     
     setUserActivity(prev => {
@@ -105,10 +118,10 @@ export const useUserAnalytics = () => {
         subject,
         score,
         totalQuestions,
-        date: new Date()
+        date: new Date(),
+        isAIGenerated
       }];
       
-      // Update daily activity
       const todayActivity = prev.dailyActivity.find(day => day.date === today);
       const updatedDailyActivity = todayActivity 
         ? prev.dailyActivity.map(day => 
@@ -134,8 +147,21 @@ export const useUserAnalytics = () => {
     updateStreak();
   };
 
+  const addAIMaterial = (subject: string, topic: string, type: 'study_material' | 'quiz', performance?: number) => {
+    setUserActivity(prev => ({
+      ...prev,
+      aiMaterialsGenerated: [...prev.aiMaterialsGenerated, {
+        subject,
+        topic,
+        date: new Date(),
+        type,
+        performance
+      }]
+    }));
+  };
+
   const completeLesson = (subject: string) => {
-    const xpEarned = 25; // 25 XP per lesson
+    const xpEarned = 25;
     const today = new Date().toDateString();
     
     setUserActivity(prev => {
@@ -149,7 +175,6 @@ export const useUserAnalytics = () => {
           : subj
       );
       
-      // Update daily activity
       const todayActivity = prev.dailyActivity.find(day => day.date === today);
       const updatedDailyActivity = todayActivity 
         ? prev.dailyActivity.map(day => 
@@ -172,7 +197,6 @@ export const useUserAnalytics = () => {
       const newCompletedLessons = prev.completedLessons + 1;
       const newWeeklyCompleted = Math.min(prev.weeklyGoal, prev.weeklyCompleted + 1);
       
-      // Update level based on total XP
       let newLevel = 'Beginner';
       const newTotalXP = prev.totalXP + xpEarned;
       if (newTotalXP >= 2000) newLevel = 'Expert';
@@ -193,44 +217,67 @@ export const useUserAnalytics = () => {
     updateStreak();
   };
 
-  const addStudySession = (subject: string, hours: number) => {
-    const xpEarned = Math.floor(hours * 20); // 20 XP per hour
-    const today = new Date().toDateString();
+  // Generate weekly data based on real user activity
+  const getWeeklyData = () => {
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const today = new Date();
+    const weekData = [];
     
-    setUserActivity(prev => {
-      const todayActivity = prev.dailyActivity.find(day => day.date === today);
-      const updatedDailyActivity = todayActivity 
-        ? prev.dailyActivity.map(day => 
-            day.date === today 
-              ? { 
-                  ...day, 
-                  hoursStudied: day.hoursStudied + hours,
-                  xpEarned: day.xpEarned + xpEarned
-                }
-              : day
-          )
-        : [...prev.dailyActivity, {
-            date: today,
-            hoursStudied: hours,
-            xpEarned,
-            lessonsCompleted: 0
-          }];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toDateString();
       
-      return {
-        ...prev,
-        totalXP: prev.totalXP + xpEarned,
-        dailyActivity: updatedDailyActivity
-      };
-    });
+      const dayActivity = userActivity.dailyActivity.find(activity => 
+        new Date(activity.date).toDateString() === dateStr
+      );
+      
+      weekData.push({
+        day: days[date.getDay() === 0 ? 6 : date.getDay() - 1],
+        hours: dayActivity?.hoursStudied || 0,
+        xp: dayActivity?.xpEarned || 0
+      });
+    }
     
-    updateStreak();
+    return weekData;
+  };
+
+  // Generate performance trend based on quiz scores
+  const getPerformanceData = () => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+    const performanceData = [];
+    
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date();
+      date.setMonth(date.getMonth() - i);
+      const monthStr = months[date.getMonth()];
+      
+      const monthlyQuizzes = userActivity.quizScores.filter(quiz => {
+        const quizDate = new Date(quiz.date);
+        return quizDate.getMonth() === date.getMonth() && 
+               quizDate.getFullYear() === date.getFullYear();
+      });
+      
+      const averageScore = monthlyQuizzes.length > 0 
+        ? monthlyQuizzes.reduce((sum, quiz) => sum + (quiz.score / quiz.totalQuestions * 100), 0) / monthlyQuizzes.length
+        : 0;
+      
+      performanceData.push({
+        month: monthStr,
+        score: Math.round(averageScore)
+      });
+    }
+    
+    return performanceData;
   };
 
   return {
     userActivity,
     addQuizScore,
+    addAIMaterial,
     completeLesson,
-    addStudySession,
-    updateStreak
+    updateStreak,
+    getWeeklyData,
+    getPerformanceData
   };
 };

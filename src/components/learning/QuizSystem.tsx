@@ -52,7 +52,7 @@ const QuizSystem = () => {
     }
   ];
 
-  const { addQuizScore, completeLesson } = useUserAnalytics();
+  const { addQuizScore, addAIMaterial, completeLesson } = useUserAnalytics();
   const [questions, setQuestions] = useState<Question[]>(sampleQuestions);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<{ [key: string]: number }>({});
@@ -108,17 +108,14 @@ const QuizSystem = () => {
       const data = await response.json();
       let content = data.choices?.[0]?.message?.content || "Failed to generate quiz.";
       
-      // Clean the response - remove any markdown formatting or extra text
       content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       
       let parsedQuestions;
       try {
-        // Try to extract JSON from the response
         const jsonMatch = content.match(/\[[\s\S]*\]/);
         if (jsonMatch) {
           parsedQuestions = JSON.parse(jsonMatch[0]);
         } else {
-          // If no array found, try parsing the entire content
           parsedQuestions = JSON.parse(content);
         }
         
@@ -139,6 +136,9 @@ const QuizSystem = () => {
         });
         return;
       }
+
+      // Track AI material generation
+      addAIMaterial(subject, topic, 'quiz');
 
       setQuestions(parsedQuestions);
       setCurrentQuestionIndex(0);
@@ -200,8 +200,11 @@ const QuizSystem = () => {
 
     const score = answers.filter(a => a.correct).length;
     
+    // Check if this is an AI-generated quiz
+    const isAIGenerated = questions.length > 3; // AI quizzes have 5 questions, sample has 3
+    
     // Track the quiz score in user analytics
-    addQuizScore(currentQuestion.subject || 'General', score, questions.length);
+    addQuizScore(currentQuestion.subject || 'General', score, questions.length, isAIGenerated);
     
     setQuizResult({
       score,
@@ -211,7 +214,6 @@ const QuizSystem = () => {
     
     setQuizCompleted(true);
     
-    // Show success toast
     const percentage = Math.round((score / questions.length) * 100);
     toast({
       title: "Quiz Completed!",

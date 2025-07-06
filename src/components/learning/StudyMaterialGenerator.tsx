@@ -1,35 +1,26 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BookOpen, FileText, HelpCircle, Sparkles, Brain } from 'lucide-react';
+import { Textarea } from "@/components/ui/textarea";
+import { BookOpen, Download, Share2, Sparkles, Loader2 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { useUserAnalytics } from "@/hooks/useUserAnalytics";
-
-interface StudyMaterial {
-  id: string;
-  type: 'summary' | 'flashcard' | 'quiz';
-  title: string;
-  content: any;
-  subject: string;
-  createdAt: Date;
-}
 
 const StudyMaterialGenerator = () => {
   const [topic, setTopic] = useState('');
   const [subject, setSubject] = useState('');
-  const [materials, setMaterials] = useState<StudyMaterial[]>([]);
+  const [difficulty, setDifficulty] = useState('intermediate');
+  const [materialType, setMaterialType] = useState('summary');
+  const [generatedContent, setGeneratedContent] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [activeTab, setActiveTab] = useState('generate');
   const { toast } = useToast();
-  const { addStudySession } = useUserAnalytics();
+  const { addAIMaterial } = useUserAnalytics();
 
-  // TODO: Replace with your actual OpenRouter API key
-  const API_KEY = "YOUR_OPENROUTER_API_KEY_HERE";
-
-  const generateAIMaterial = async (type: 'summary' | 'flashcard' | 'quiz') => {
+  const generateStudyMaterial = async () => {
     if (!topic.trim() || !subject.trim()) {
       toast({
         title: "Missing Information",
@@ -42,18 +33,12 @@ const StudyMaterialGenerator = () => {
     setIsGenerating(true);
 
     try {
-      let prompt = '';
-      switch (type) {
-        case 'summary':
-          prompt = `Create a comprehensive study summary for the topic "${topic}" in ${subject}. Include key concepts, important facts, and main points. Format it clearly with headings and bullet points. Provide only the content, no additional formatting or explanations.`;
-          break;
-        case 'flashcard':
-          prompt = `Create 10 flashcards for the topic "${topic}" in ${subject}. Format as JSON array with "question" and "answer" fields. Focus on key concepts and definitions. Return only valid JSON, no additional text.`;
-          break;
-        case 'quiz':
-          prompt = `Create a 5-question multiple choice quiz about "${topic}" in ${subject}. Format as JSON array with "question", "options" (array of 4 choices), "correct" (index of correct answer), and "explanation" fields. Return only valid JSON, no additional text.`;
-          break;
-      }
+      const materialPrompts = {
+        summary: `Create a comprehensive study summary about "${topic}" in ${subject} at ${difficulty} level. Structure it with clear headings, key points, and important concepts. Make it educational and easy to understand.`,
+        notes: `Create detailed study notes about "${topic}" in ${subject} at ${difficulty} level. Include definitions, examples, formulas (if applicable), and key takeaways. Format as organized notes.`,
+        flashcards: `Create 10 flashcard-style question-answer pairs about "${topic}" in ${subject} at ${difficulty} level. Format each as "Q: [question]" followed by "A: [answer]".`,
+        outline: `Create a detailed study outline for "${topic}" in ${subject} at ${difficulty} level. Use a hierarchical structure with main topics, subtopics, and key points.`
+      };
 
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
@@ -66,11 +51,11 @@ const StudyMaterialGenerator = () => {
           "messages": [
             {
               "role": "system",
-              "content": "You are an educational content generator. Create high-quality study materials that are accurate, well-structured, and educational. For JSON responses, return only valid JSON without any markdown formatting or additional text."
+              "content": "You are an expert educational content creator. Create clear, well-structured, and informative study materials. Use proper formatting with headings, bullet points, and clear organization."
             },
             {
               "role": "user",
-              "content": prompt
+              "content": materialPrompts[materialType as keyof typeof materialPrompts]
             }
           ]
         })
@@ -78,52 +63,25 @@ const StudyMaterialGenerator = () => {
 
       const data = await response.json();
       let content = data.choices?.[0]?.message?.content || "Failed to generate content.";
-
-      // Clean the response
-      content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-
-      let parsedContent;
-      if (type === 'flashcard' || type === 'quiz') {
-        try {
-          // Try to extract JSON from the response
-          const jsonMatch = content.match(/\[[\s\S]*\]/);
-          if (jsonMatch) {
-            parsedContent = JSON.parse(jsonMatch[0]);
-          } else {
-            parsedContent = JSON.parse(content);
-          }
-        } catch {
-          parsedContent = content;
-        }
-      } else {
-        parsedContent = content;
-      }
-
-      const newMaterial: StudyMaterial = {
-        id: Date.now().toString(),
-        type,
-        title: `${type.charAt(0).toUpperCase() + type.slice(1)}: ${topic}`,
-        content: parsedContent,
-        subject,
-        createdAt: new Date()
-      };
-
-      setMaterials(prev => [newMaterial, ...prev]);
-      setActiveTab('materials');
       
-      // Track study session
-      addStudySession(subject, 0.5);
+      // Clean up the response formatting
+      content = content.replace(/\*\*(.*?)\*\*/g, '$1').trim();
+      
+      setGeneratedContent(content);
+      
+      // Track AI material generation
+      addAIMaterial(subject, topic, 'study_material');
       
       toast({
-        title: "Material Generated!",
-        description: `${type.charAt(0).toUpperCase() + type.slice(1)} created successfully. +10 XP earned!`,
+        title: "Study Material Generated!",
+        description: `${materialType.charAt(0).toUpperCase() + materialType.slice(1)} about "${topic}" created successfully.`,
       });
 
     } catch (error) {
-      console.error('Error generating material:', error);
+      console.error('Error generating study material:', error);
       toast({
         title: "Generation Failed",
-        description: "Failed to generate study material. Please check your API key and internet connection.",
+        description: "Failed to generate study material. Please check your connection and try again.",
         variant: "destructive"
       });
     } finally {
@@ -131,204 +89,153 @@ const StudyMaterialGenerator = () => {
     }
   };
 
-  const renderMaterial = (material: StudyMaterial) => {
-    switch (material.type) {
-      case 'summary':
-        return (
-          <div className="prose max-w-none">
-            <pre className="whitespace-pre-wrap text-sm">{material.content}</pre>
-          </div>
-        );
-      
-      case 'flashcard':
-        if (Array.isArray(material.content)) {
-          return (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {material.content.map((card: any, index: number) => (
-                <Card key={index} className="p-4">
-                  <div className="text-sm font-medium text-blue-600 mb-2">Question {index + 1}</div>
-                  <div className="font-medium mb-2">{card.question}</div>
-                  <div className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
-                    <strong>Answer:</strong> {card.answer}
-                  </div>
-                </Card>
-              ))}
-            </div>
-          );
-        } else {
-          return <pre className="whitespace-pre-wrap text-sm">{material.content}</pre>;
-        }
-      
-      case 'quiz':
-        if (Array.isArray(material.content)) {
-          return (
-            <div className="space-y-6">
-              {material.content.map((question: any, index: number) => (
-                <Card key={index} className="p-4">
-                  <div className="font-medium mb-3">
-                    {index + 1}. {question.question}
-                  </div>
-                  <div className="grid grid-cols-1 gap-2 mb-3">
-                    {question.options?.map((option: string, optIndex: number) => (
-                      <div
-                        key={optIndex}
-                        className={`p-2 rounded border text-sm ${
-                          optIndex === question.correct
-                            ? 'bg-green-50 border-green-200 text-green-800'
-                            : 'bg-gray-50 border-gray-200'
-                        }`}
-                      >
-                        {String.fromCharCode(65 + optIndex)}. {option}
-                      </div>
-                    ))}
-                  </div>
-                  {question.explanation && (
-                    <div className="text-xs text-gray-600 bg-blue-50 p-2 rounded">
-                      <strong>Explanation:</strong> {question.explanation}
-                    </div>
-                  )}
-                </Card>
-              ))}
-            </div>
-          );
-        } else {
-          return <pre className="whitespace-pre-wrap text-sm">{material.content}</pre>;
-        }
-      
-      default:
-        return <div>Unknown material type</div>;
-    }
+  const copyContent = () => {
+    navigator.clipboard.writeText(generatedContent);
+    toast({
+      title: "Copied!",
+      description: "Study material copied to clipboard.",
+    });
+  };
+
+  const downloadContent = () => {
+    const element = document.createElement('a');
+    const file = new Blob([generatedContent], { type: 'text/plain' });
+    element.href = URL.createObjectURL(file);
+    element.download = `${topic}_${materialType}.txt`;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+    
+    toast({
+      title: "Downloaded!",
+      description: "Study material downloaded successfully.",
+    });
   };
 
   return (
     <div className="space-y-6">
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="generate">Generate Materials</TabsTrigger>
-          <TabsTrigger value="materials">My Materials ({materials.length})</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="generate">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Sparkles className="w-6 h-6 text-purple-600" />
-                <span>AI Study Material Generator</span>
-              </CardTitle>
-              <CardDescription>
-                Generate personalized study materials using AI. Enter your topic and subject to get started.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Subject</label>
-                  <Input
-                    placeholder="e.g., Mathematics, Biology, History"
-                    value={subject}
-                    onChange={(e) => setSubject(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Topic</label>
-                  <Input
-                    placeholder="e.g., Photosynthesis, World War II"
-                    value={topic}
-                    onChange={(e) => setTopic(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Button
-                  onClick={() => generateAIMaterial('summary')}
-                  disabled={isGenerating}
-                  className="flex items-center space-x-2 h-auto p-4 flex-col"
-                  variant="outline"
-                >
-                  <FileText className="w-8 h-8 text-blue-600 mb-2" />
-                  <span className="font-medium">Generate Summary</span>
-                  <span className="text-xs text-gray-500 text-center">
-                    Comprehensive overview with key points
-                  </span>
-                </Button>
-
-                <Button
-                  onClick={() => generateAIMaterial('flashcard')}
-                  disabled={isGenerating}
-                  className="flex items-center space-x-2 h-auto p-4 flex-col"
-                  variant="outline"
-                >
-                  <Brain className="w-8 h-8 text-green-600 mb-2" />
-                  <span className="font-medium">Create Flashcards</span>
-                  <span className="text-xs text-gray-500 text-center">
-                    Interactive cards for quick review
-                  </span>
-                </Button>
-
-                <Button
-                  onClick={() => generateAIMaterial('quiz')}
-                  disabled={isGenerating}
-                  className="flex items-center space-x-2 h-auto p-4 flex-col"
-                  variant="outline"
-                >
-                  <HelpCircle className="w-8 h-8 text-purple-600 mb-2" />
-                  <span className="font-medium">Generate Quiz</span>
-                  <span className="text-xs text-gray-500 text-center">
-                    Test your knowledge with questions
-                  </span>
-                </Button>
-              </div>
-
-              {isGenerating && (
-                <div className="text-center py-8">
-                  <div className="inline-flex items-center space-x-2">
-                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                    <span>Generating AI content...</span>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="materials">
-          <div className="space-y-4">
-            {materials.length === 0 ? (
-              <Card>
-                <CardContent className="text-center py-12">
-                  <BookOpen className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Materials Yet</h3>
-                  <p className="text-gray-500 mb-4">Generate some study materials to get started!</p>
-                  <Button onClick={() => setActiveTab('generate')}>
-                    Generate Materials
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : (
-              materials.map((material) => (
-                <Card key={material.id}>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg">{material.title}</CardTitle>
-                      <div className="flex items-center space-x-2">
-                        <Badge variant="secondary">{material.subject}</Badge>
-                        <Badge variant="outline">{material.type}</Badge>
-                      </div>
-                    </div>
-                    <CardDescription>
-                      Created on {material.createdAt.toLocaleDateString()}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {renderMaterial(material)}
-                  </CardContent>
-                </Card>
-              ))
-            )}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Sparkles className="w-6 h-6 text-purple-600" />
+            <span>AI Study Material Generator</span>
+          </CardTitle>
+          <CardDescription>
+            Generate personalized study materials using AI. Create summaries, notes, flashcards, and outlines tailored to your needs.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="subject">Subject</Label>
+              <Input
+                id="subject"
+                placeholder="e.g., Mathematics, Science, History"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="topic">Topic</Label>
+              <Input
+                id="topic"
+                placeholder="e.g., Algebra, Photosynthesis, World War II"
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+              />
+            </div>
           </div>
-        </TabsContent>
-      </Tabs>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="difficulty">Difficulty Level</Label>
+              <select
+                id="difficulty"
+                className="w-full p-2 border border-gray-300 rounded-md"
+                value={difficulty}
+                onChange={(e) => setDifficulty(e.target.value)}
+              >
+                <option value="beginner">Beginner</option>
+                <option value="intermediate">Intermediate</option>
+                <option value="advanced">Advanced</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="materialType">Material Type</Label>
+              <select
+                id="materialType"
+                className="w-full p-2 border border-gray-300 rounded-md"
+                value={materialType}
+                onChange={(e) => setMaterialType(e.target.value)}
+              >
+                <option value="summary">Study Summary</option>
+                <option value="notes">Detailed Notes</option>
+                <option value="flashcards">Flashcards</option>
+                <option value="outline">Study Outline</option>
+              </select>
+            </div>
+          </div>
+
+          <Button
+            onClick={generateStudyMaterial}
+            disabled={isGenerating}
+            className="w-full bg-gradient-to-r from-purple-600 to-blue-600"
+          >
+            {isGenerating ? (
+              <div className="flex items-center space-x-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Generating Content...</span>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-2">
+                <BookOpen className="w-4 h-4" />
+                <span>Generate Study Material</span>
+              </div>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {generatedContent && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center space-x-2">
+                <BookOpen className="w-5 h-5 text-blue-600" />
+                <span>Generated Study Material</span>
+              </CardTitle>
+              <div className="flex space-x-2">
+                <Badge variant="secondary">
+                  {materialType.charAt(0).toUpperCase() + materialType.slice(1)}
+                </Badge>
+                <Badge variant="outline">
+                  {difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}
+                </Badge>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="bg-gray-50 rounded-lg p-4 border">
+              <Textarea
+                value={generatedContent}
+                readOnly
+                className="min-h-[400px] border-none bg-transparent resize-none focus:ring-0"
+              />
+            </div>
+            
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={copyContent}>
+                <Share2 className="w-4 h-4 mr-2" />
+                Copy
+              </Button>
+              <Button variant="outline" onClick={downloadContent}>
+                <Download className="w-4 h-4 mr-2" />
+                Download
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

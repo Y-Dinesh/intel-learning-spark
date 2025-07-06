@@ -1,9 +1,11 @@
+
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 import { TrendingUp, Calendar, Target, Award, Clock, BookOpen } from 'lucide-react';
+import { useUserAnalytics } from '@/hooks/useUserAnalytics';
 
 interface UserProgressData {
   totalXP: number;
@@ -18,6 +20,21 @@ interface UserProgressData {
     progress: number;
     color: string;
     icon: string;
+    lessonsCompleted: number;
+    totalLessons: number;
+  }>;
+  quizScores: Array<{
+    subject: string;
+    score: number;
+    totalQuestions: number;
+    date: Date;
+    isAIGenerated?: boolean;
+  }>;
+  aiMaterialsGenerated: Array<{
+    subject: string;
+    topic: string;
+    date: Date;
+    type: 'study_material' | 'quiz';
   }>;
 }
 
@@ -26,40 +43,24 @@ interface ProgressDashboardProps {
 }
 
 const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ userProgress }) => {
-  // Calculate real weekly data based on user progress
-  const generateWeeklyData = () => {
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const baseHours = userProgress.weeklyCompleted / 7;
-    return days.map((day, index) => ({
-      day,
-      hours: Math.max(0, baseHours + (Math.random() - 0.5) * 2),
-      xp: Math.floor((baseHours + (Math.random() - 0.5) * 2) * 50)
-    }));
-  };
+  const { getWeeklyData, getPerformanceData } = useUserAnalytics();
+  
+  const weeklyData = getWeeklyData();
+  const performanceData = getPerformanceData();
 
-  // Convert subject data for pie chart
+  // Convert subject data for pie chart with real colors
   const subjectData = userProgress.subjects.map(subject => ({
     subject: subject.name,
-    hours: (subject.progress / 100) * 10, // Convert progress to hours
-    color: subject.color.replace('bg-', '#').replace('-500', '')
+    hours: (subject.progress / 100) * 10,
+    fill: subject.color
   }));
-
-  // Generate performance trend based on current progress
-  const generatePerformanceData = () => {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-    const currentScore = Math.floor((userProgress.completedLessons / userProgress.totalLessons) * 100);
-    return months.map((month, index) => ({
-      month,
-      score: Math.max(60, currentScore - (5 - index) * 5 + Math.random() * 10)
-    }));
-  };
-
-  const weeklyData = generateWeeklyData();
-  const performanceData = generatePerformanceData();
 
   // Calculate achievements based on real progress
   const calculateAchievements = () => {
-    const completionRate = (userProgress.completedLessons / userProgress.totalLessons) * 100;
+    const aiQuizzes = userProgress.quizScores.filter(q => q.isAIGenerated).length;
+    const aiMaterials = userProgress.aiMaterialsGenerated.length;
+    const perfectScores = userProgress.quizScores.filter(q => q.score === q.totalQuestions).length;
+    
     return [
       { 
         title: 'Week Warrior', 
@@ -71,13 +72,19 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ userProgress }) =
         title: 'Quiz Master', 
         description: '10 perfect quiz scores', 
         icon: '🎯', 
-        earned: userProgress.totalXP > 1000 
+        earned: perfectScores >= 10 
       },
       { 
-        title: 'Study Marathon', 
-        description: '5+ hours in one day', 
-        icon: '⏰', 
-        earned: userProgress.weeklyCompleted >= 5 
+        title: 'AI Explorer', 
+        description: 'Used AI quiz generation 5 times', 
+        icon: '🤖', 
+        earned: aiQuizzes >= 5 
+      },
+      { 
+        title: 'Study Creator', 
+        description: 'Generated 10 AI study materials', 
+        icon: '📚', 
+        earned: aiMaterials >= 10 
       },
       { 
         title: 'Subject Expert', 
@@ -86,15 +93,9 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ userProgress }) =
         earned: userProgress.subjects.some(s => s.progress >= 80) 
       },
       { 
-        title: 'Helper', 
-        description: 'Answer community questions', 
-        icon: '🤝', 
-        earned: false 
-      },
-      { 
         title: 'Consistent Learner', 
         description: '30-day streak', 
-        icon: '📚', 
+        icon: '📖', 
         earned: userProgress.currentStreak >= 30 
       }
     ];
@@ -103,7 +104,13 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ userProgress }) =
   const achievements = calculateAchievements();
   const earnedAchievements = achievements.filter(a => a.earned).length;
   const totalWeeklyHours = weeklyData.reduce((sum, day) => sum + day.hours, 0);
-  const averageScore = Math.floor(performanceData.reduce((sum, month) => sum + month.score, 0) / performanceData.length);
+  const averageScore = performanceData.length > 0 
+    ? Math.floor(performanceData.reduce((sum, month) => sum + month.score, 0) / performanceData.length)
+    : 0;
+
+  // AI-generated content stats
+  const aiQuizCount = userProgress.quizScores.filter(q => q.isAIGenerated).length;
+  const aiMaterialCount = userProgress.aiMaterialsGenerated.filter(m => m.type === 'study_material').length;
 
   return (
     <div className="space-y-6">
@@ -131,7 +138,7 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ userProgress }) =
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-2xl font-bold text-green-900">{averageScore}%</div>
-                <p className="text-sm text-green-600">This month</p>
+                <p className="text-sm text-green-600">Quiz performance</p>
               </div>
               <Target className="w-8 h-8 text-green-600" />
             </div>
@@ -140,30 +147,30 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ userProgress }) =
 
         <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-purple-700">Achievements</CardTitle>
+            <CardTitle className="text-sm font-medium text-purple-700">AI Content</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-2xl font-bold text-purple-900">{earnedAchievements}/{achievements.length}</div>
-                <p className="text-sm text-purple-600">Unlocked</p>
+                <div className="text-2xl font-bold text-purple-900">{aiQuizCount + aiMaterialCount}</div>
+                <p className="text-sm text-purple-600">Generated items</p>
               </div>
-              <Award className="w-8 h-8 text-purple-600" />
+              <BookOpen className="w-8 h-8 text-purple-600" />
             </div>
           </CardContent>
         </Card>
 
         <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-orange-700">Lessons</CardTitle>
+            <CardTitle className="text-sm font-medium text-orange-700">Achievements</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-2xl font-bold text-orange-900">{userProgress.completedLessons}</div>
-                <p className="text-sm text-orange-600">Completed</p>
+                <div className="text-2xl font-bold text-orange-900">{earnedAchievements}/{achievements.length}</div>
+                <p className="text-sm text-orange-600">Unlocked</p>
               </div>
-              <BookOpen className="w-8 h-8 text-orange-600" />
+              <Award className="w-8 h-8 text-orange-600" />
             </div>
           </CardContent>
         </Card>
@@ -215,7 +222,7 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ userProgress }) =
                   label={({ subject, hours }) => `${subject}: ${hours.toFixed(1)}h`}
                 >
                   {subjectData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+                    <Cell key={`cell-${index}`} fill={entry.fill} />
                   ))}
                 </Pie>
                 <Tooltip />
@@ -245,32 +252,66 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ userProgress }) =
 
         <Card>
           <CardHeader>
-            <CardTitle>Achievements</CardTitle>
+            <CardTitle>Recent AI Activity</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {achievements.map((achievement, index) => (
-                <div key={index} className={`flex items-center space-x-3 p-3 rounded-lg ${
-                  achievement.earned ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200' : 'bg-gray-50 border border-gray-200'
-                }`}>
-                  <div className="text-2xl">{achievement.icon}</div>
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2">
-                      <h4 className={`font-medium ${achievement.earned ? 'text-yellow-800' : 'text-gray-600'}`}>
-                        {achievement.title}
-                      </h4>
-                      {achievement.earned && <Badge className="bg-yellow-600">Earned</Badge>}
-                    </div>
-                    <p className={`text-sm ${achievement.earned ? 'text-yellow-600' : 'text-gray-500'}`}>
-                      {achievement.description}
-                    </p>
-                  </div>
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="bg-blue-50 p-3 rounded-lg">
+                  <div className="text-2xl font-bold text-blue-600">{aiQuizCount}</div>
+                  <div className="text-sm text-blue-600">AI Quizzes Taken</div>
                 </div>
-              ))}
+                <div className="bg-green-50 p-3 rounded-lg">
+                  <div className="text-2xl font-bold text-green-600">{aiMaterialCount}</div>
+                  <div className="text-sm text-green-600">Materials Generated</div>
+                </div>
+              </div>
+              
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {userProgress.aiMaterialsGenerated.slice(-5).reverse().map((material, index) => (
+                  <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                    <div>
+                      <div className="text-sm font-medium">{material.topic}</div>
+                      <div className="text-xs text-gray-600">{material.subject}</div>
+                    </div>
+                    <Badge variant={material.type === 'quiz' ? 'default' : 'secondary'}>
+                      {material.type === 'quiz' ? '🧠 Quiz' : '📖 Material'}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Achievements</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {achievements.map((achievement, index) => (
+              <div key={index} className={`flex items-center space-x-3 p-3 rounded-lg ${
+                achievement.earned ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200' : 'bg-gray-50 border border-gray-200'
+              }`}>
+                <div className="text-2xl">{achievement.icon}</div>
+                <div className="flex-1">
+                  <div className="flex items-center space-x-2">
+                    <h4 className={`font-medium ${achievement.earned ? 'text-yellow-800' : 'text-gray-600'}`}>
+                      {achievement.title}
+                    </h4>
+                    {achievement.earned && <Badge className="bg-yellow-600">Earned</Badge>}
+                  </div>
+                  <p className={`text-sm ${achievement.earned ? 'text-yellow-600' : 'text-gray-500'}`}>
+                    {achievement.description}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
