@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -10,30 +11,17 @@ import ProgressDashboard from '@/components/learning/ProgressDashboard';
 import QuizSystem from '@/components/learning/QuizSystem';
 import LearningPath from '@/components/learning/LearningPath';
 import AITutor from '@/components/learning/AITutor';
+import { useUserAnalytics } from '@/hooks/useUserAnalytics';
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [userProgress, setUserProgress] = useState({
-    totalXP: 1250,
-    currentStreak: 7,
-    completedLessons: 24,
-    totalLessons: 40,
-    currentLevel: 'Intermediate',
-    weeklyGoal: 5,
-    weeklyCompleted: 3
-  });
+  const { userActivity, completeLesson } = useUserAnalytics();
 
-  const subjects = [
-    { name: 'Mathematics', progress: 75, color: 'bg-blue-500', icon: '📊' },
-    { name: 'Science', progress: 60, color: 'bg-green-500', icon: '🔬' },
-    { name: 'History', progress: 45, color: 'bg-purple-500', icon: '📚' },
-    { name: 'Literature', progress: 80, color: 'bg-pink-500', icon: '📖' }
-  ];
-
-  // Create complete user progress data for the dashboard
-  const completeUserProgress = {
-    ...userProgress,
-    subjects: subjects
+  const handleStartLesson = () => {
+    // Simulate completing a lesson for demo purposes
+    const subjects = ['Mathematics', 'Science', 'History', 'Literature'];
+    const randomSubject = subjects[Math.floor(Math.random() * subjects.length)];
+    completeLesson(randomSubject);
   };
 
   return (
@@ -54,11 +42,11 @@ const Index = () => {
             <div className="flex items-center space-x-4">
               <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
                 <Trophy className="w-4 h-4 mr-1" />
-                {userProgress.totalXP} XP
+                {userActivity.totalXP} XP
               </Badge>
               <Badge variant="secondary" className="bg-orange-100 text-orange-800">
                 <Target className="w-4 h-4 mr-1" />
-                {userProgress.currentStreak} day streak
+                {userActivity.currentStreak} day streak
               </Badge>
             </div>
           </div>
@@ -97,8 +85,8 @@ const Index = () => {
                   <CardTitle className="text-lg">Total XP</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{userProgress.totalXP}</div>
-                  <p className="opacity-80">+150 this week</p>
+                  <div className="text-2xl font-bold">{userActivity.totalXP}</div>
+                  <p className="opacity-80">Keep learning to earn more!</p>
                 </CardContent>
               </Card>
 
@@ -107,8 +95,8 @@ const Index = () => {
                   <CardTitle className="text-lg">Streak</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{userProgress.currentStreak} days</div>
-                  <p className="opacity-80">Keep it up!</p>
+                  <div className="text-2xl font-bold">{userActivity.currentStreak} days</div>
+                  <p className="opacity-80">{userActivity.currentStreak > 0 ? 'Keep it up!' : 'Start your streak today!'}</p>
                 </CardContent>
               </Card>
 
@@ -117,8 +105,8 @@ const Index = () => {
                   <CardTitle className="text-lg">Lessons</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{userProgress.completedLessons}/{userProgress.totalLessons}</div>
-                  <p className="opacity-80">60% complete</p>
+                  <div className="text-2xl font-bold">{userActivity.completedLessons}/{userActivity.totalLessons}</div>
+                  <p className="opacity-80">{Math.round((userActivity.completedLessons / userActivity.totalLessons) * 100)}% complete</p>
                 </CardContent>
               </Card>
 
@@ -127,8 +115,12 @@ const Index = () => {
                   <CardTitle className="text-lg">Level</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{userProgress.currentLevel}</div>
-                  <p className="opacity-80">Level 5</p>
+                  <div className="text-2xl font-bold">{userActivity.currentLevel}</div>
+                  <p className="opacity-80">
+                    {userActivity.currentLevel === 'Beginner' ? 'Level 1' :
+                     userActivity.currentLevel === 'Intermediate' ? 'Level 2' :
+                     userActivity.currentLevel === 'Advanced' ? 'Level 3' : 'Level 4'}
+                  </p>
                 </CardContent>
               </Card>
             </div>
@@ -140,16 +132,19 @@ const Index = () => {
                   <CardDescription>Your learning progress across different subjects</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {subjects.map((subject, index) => (
+                  {userActivity.subjects.map((subject, index) => (
                     <div key={index} className="space-y-2">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2">
                           <span className="text-lg">{subject.icon}</span>
                           <span className="font-medium">{subject.name}</span>
                         </div>
-                        <span className="text-sm text-gray-600">{subject.progress}%</span>
+                        <span className="text-sm text-gray-600">{Math.round(subject.progress)}%</span>
                       </div>
                       <Progress value={subject.progress} className="h-2" />
+                      <div className="text-xs text-gray-500">
+                        {subject.lessonsCompleted}/{subject.totalLessons} lessons completed
+                      </div>
                     </div>
                   ))}
                 </CardContent>
@@ -164,12 +159,17 @@ const Index = () => {
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <span>Lessons completed this week</span>
-                      <span className="font-bold">{userProgress.weeklyCompleted}/{userProgress.weeklyGoal}</span>
+                      <span className="font-bold">{userActivity.weeklyCompleted}/{userActivity.weeklyGoal}</span>
                     </div>
-                    <Progress value={(userProgress.weeklyCompleted / userProgress.weeklyGoal) * 100} className="h-3" />
+                    <Progress value={(userActivity.weeklyCompleted / userActivity.weeklyGoal) * 100} className="h-3" />
                     <div className="flex items-center justify-between text-sm text-gray-600">
-                      <span>2 more lessons to reach your goal!</span>
-                      <Button size="sm" className="bg-gradient-to-r from-purple-600 to-blue-600">
+                      <span>
+                        {userActivity.weeklyCompleted >= userActivity.weeklyGoal 
+                          ? 'Goal achieved! Great work!' 
+                          : `${userActivity.weeklyGoal - userActivity.weeklyCompleted} more lessons to reach your goal!`
+                        }
+                      </span>
+                      <Button size="sm" className="bg-gradient-to-r from-purple-600 to-blue-600" onClick={handleStartLesson}>
                         Start Lesson
                       </Button>
                     </div>
@@ -178,7 +178,7 @@ const Index = () => {
               </Card>
             </div>
 
-            <ProgressDashboard userProgress={completeUserProgress} />
+            <ProgressDashboard userProgress={userActivity} />
           </TabsContent>
 
           <TabsContent value="tutor">

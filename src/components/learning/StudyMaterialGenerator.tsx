@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BookOpen, FileText, HelpCircle, Sparkles, Brain } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
+import { useUserAnalytics } from "@/hooks/useUserAnalytics";
 
 interface StudyMaterial {
   id: string;
@@ -23,6 +24,7 @@ const StudyMaterialGenerator = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeTab, setActiveTab] = useState('generate');
   const { toast } = useToast();
+  const { addStudySession } = useUserAnalytics();
 
   // TODO: Replace with your actual OpenRouter API key
   const API_KEY = "YOUR_OPENROUTER_API_KEY_HERE";
@@ -43,22 +45,20 @@ const StudyMaterialGenerator = () => {
       let prompt = '';
       switch (type) {
         case 'summary':
-          prompt = `Create a comprehensive study summary for the topic "${topic}" in ${subject}. Include key concepts, important facts, and main points. Format it clearly with headings and bullet points.`;
+          prompt = `Create a comprehensive study summary for the topic "${topic}" in ${subject}. Include key concepts, important facts, and main points. Format it clearly with headings and bullet points. Provide only the content, no additional formatting or explanations.`;
           break;
         case 'flashcard':
-          prompt = `Create 10 flashcards for the topic "${topic}" in ${subject}. Format as JSON array with "question" and "answer" fields. Focus on key concepts and definitions.`;
+          prompt = `Create 10 flashcards for the topic "${topic}" in ${subject}. Format as JSON array with "question" and "answer" fields. Focus on key concepts and definitions. Return only valid JSON, no additional text.`;
           break;
         case 'quiz':
-          prompt = `Create a 5-question multiple choice quiz about "${topic}" in ${subject}. Format as JSON array with "question", "options" (array of 4 choices), "correct" (index of correct answer), and "explanation" fields.`;
+          prompt = `Create a 5-question multiple choice quiz about "${topic}" in ${subject}. Format as JSON array with "question", "options" (array of 4 choices), "correct" (index of correct answer), and "explanation" fields. Return only valid JSON, no additional text.`;
           break;
       }
 
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${API_KEY}`,
-          "HTTP-Referer": window.location.origin,
-          "X-Title": "AI Learning Assistant",
+          "Authorization": "Bearer YOUR_OPENROUTER_API_KEY_HERE",
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
@@ -66,7 +66,7 @@ const StudyMaterialGenerator = () => {
           "messages": [
             {
               "role": "system",
-              "content": "You are an educational content generator. Create high-quality study materials that are accurate, well-structured, and educational."
+              "content": "You are an educational content generator. Create high-quality study materials that are accurate, well-structured, and educational. For JSON responses, return only valid JSON without any markdown formatting or additional text."
             },
             {
               "role": "user",
@@ -77,7 +77,10 @@ const StudyMaterialGenerator = () => {
       });
 
       const data = await response.json();
-      const content = data.choices?.[0]?.message?.content || "Failed to generate content.";
+      let content = data.choices?.[0]?.message?.content || "Failed to generate content.";
+
+      // Clean the response
+      content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
 
       let parsedContent;
       if (type === 'flashcard' || type === 'quiz') {
@@ -87,7 +90,7 @@ const StudyMaterialGenerator = () => {
           if (jsonMatch) {
             parsedContent = JSON.parse(jsonMatch[0]);
           } else {
-            parsedContent = content;
+            parsedContent = JSON.parse(content);
           }
         } catch {
           parsedContent = content;
@@ -108,9 +111,12 @@ const StudyMaterialGenerator = () => {
       setMaterials(prev => [newMaterial, ...prev]);
       setActiveTab('materials');
       
+      // Track study session
+      addStudySession(subject, 0.5);
+      
       toast({
         title: "Material Generated!",
-        description: `${type.charAt(0).toUpperCase() + type.slice(1)} created successfully.`,
+        description: `${type.charAt(0).toUpperCase() + type.slice(1)} created successfully. +10 XP earned!`,
       });
 
     } catch (error) {

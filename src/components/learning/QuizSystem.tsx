@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { CheckCircle, XCircle, RotateCcw, Trophy, Target, Sparkles } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
+import { useUserAnalytics } from "@/hooks/useUserAnalytics";
 
 interface Question {
   id: string;
@@ -52,6 +52,7 @@ const QuizSystem = () => {
     }
   ];
 
+  const { addQuizScore, completeLesson } = useUserAnalytics();
   const [questions, setQuestions] = useState<Question[]>(sampleQuestions);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<{ [key: string]: number }>({});
@@ -86,9 +87,7 @@ const QuizSystem = () => {
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${API_KEY}`,
-          "HTTP-Referer": window.location.origin,
-          "X-Title": "AI Learning Assistant",
+          "Authorization": "Bearer YOUR_OPENROUTER_API_KEY_HERE",
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
@@ -96,7 +95,7 @@ const QuizSystem = () => {
           "messages": [
             {
               "role": "system",
-              "content": "You are an educational quiz generator. Create high-quality multiple choice questions that are accurate and educational. Always respond with valid JSON format."
+              "content": "You are an educational quiz generator. Create high-quality multiple choice questions that are accurate and educational. Always respond with valid JSON format only, no additional text."
             },
             {
               "role": "user",
@@ -107,25 +106,30 @@ const QuizSystem = () => {
       });
 
       const data = await response.json();
-      const content = data.choices?.[0]?.message?.content || "Failed to generate quiz.";
-
+      let content = data.choices?.[0]?.message?.content || "Failed to generate quiz.";
+      
+      // Clean the response - remove any markdown formatting or extra text
+      content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      
       let parsedQuestions;
       try {
         // Try to extract JSON from the response
         const jsonMatch = content.match(/\[[\s\S]*\]/);
         if (jsonMatch) {
-          const rawQuestions = JSON.parse(jsonMatch[0]);
-          parsedQuestions = rawQuestions.map((q: any, index: number) => ({
-            id: (Date.now() + index).toString(),
-            question: q.question,
-            options: q.options,
-            correctAnswer: q.correctAnswer,
-            explanation: q.explanation,
-            subject: subject
-          }));
+          parsedQuestions = JSON.parse(jsonMatch[0]);
         } else {
-          throw new Error("No valid JSON found in response");
+          // If no array found, try parsing the entire content
+          parsedQuestions = JSON.parse(content);
         }
+        
+        parsedQuestions = parsedQuestions.map((q: any, index: number) => ({
+          id: (Date.now() + index).toString(),
+          question: q.question,
+          options: q.options,
+          correctAnswer: q.correctAnswer,
+          explanation: q.explanation,
+          subject: subject
+        }));
       } catch (parseError) {
         console.error('Error parsing AI response:', parseError);
         toast({
@@ -196,6 +200,9 @@ const QuizSystem = () => {
 
     const score = answers.filter(a => a.correct).length;
     
+    // Track the quiz score in user analytics
+    addQuizScore(currentQuestion.subject || 'General', score, questions.length);
+    
     setQuizResult({
       score,
       totalQuestions: questions.length,
@@ -203,6 +210,13 @@ const QuizSystem = () => {
     });
     
     setQuizCompleted(true);
+    
+    // Show success toast
+    const percentage = Math.round((score / questions.length) * 100);
+    toast({
+      title: "Quiz Completed!",
+      description: `You scored ${score}/${questions.length} (${percentage}%). +${score * 10} XP earned!`,
+    });
   };
 
   const resetQuiz = () => {
@@ -380,7 +394,7 @@ const QuizSystem = () => {
                         ? isCorrect
                           ? 'border-green-500 bg-green-50 text-green-800'
                           : isSelected
-                          ? 'border-red-500 bg-red-50 text-red-800'
+                          ? 'border-red-500 bg-red-500 text-red-800'
                           : 'border-gray-200 bg-gray-50'
                         : isSelected
                         ? 'border-blue-500 bg-blue-50 text-blue-800'
