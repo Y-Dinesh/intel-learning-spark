@@ -36,13 +36,17 @@ const Index = () => {
   }
 
   // Calculate safe completion percentage
-  const completionPercentage = userActivity.totalLessons > 0 
-    ? Math.round((userActivity.completedLessons / userActivity.totalLessons) * 100) 
+  const safeCompletedLessons = userActivity.completedLessons || 0;
+  const safeTotalLessons = userActivity.totalLessons || 100;
+  const completionPercentage = safeTotalLessons > 0 
+    ? Math.round((safeCompletedLessons / safeTotalLessons) * 100) 
     : 0;
 
-  // Calculate safe weekly goal percentage
-  const weeklyGoalPercentage = userActivity.weeklyGoal > 0 
-    ? (userActivity.weeklyCompleted / userActivity.weeklyGoal) * 100 
+  // Calculate safe weekly goal percentage with proper fallbacks
+  const safeWeeklyCompleted = userActivity.weeklyCompleted || 0;
+  const safeWeeklyGoal = userActivity.weeklyGoal || 5;
+  const weeklyGoalPercentage = safeWeeklyGoal > 0 
+    ? Math.min(100, (safeWeeklyCompleted / safeWeeklyGoal) * 100)
     : 0;
 
   return (
@@ -71,11 +75,11 @@ const Index = () => {
                 </div>
                 <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
                   <Trophy className="w-4 h-4 mr-1" />
-                  {userActivity.totalXP} XP
+                  {userActivity.totalXP || 0} XP
                 </Badge>
                 <Badge variant="secondary" className="bg-orange-100 text-orange-800">
                   <Target className="w-4 h-4 mr-1" />
-                  {userActivity.currentStreak} day streak
+                  {userActivity.currentStreak || 0} day streak
                 </Badge>
                 <Button variant="outline" size="sm" onClick={authProvider.logout}>
                   <LogOut className="w-4 h-4 mr-2" />
@@ -118,7 +122,7 @@ const Index = () => {
                     <CardTitle className="text-lg">Total XP</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{userActivity.totalXP}</div>
+                    <div className="text-2xl font-bold">{userActivity.totalXP || 0}</div>
                     <p className="opacity-80">Keep learning to earn more!</p>
                   </CardContent>
                 </Card>
@@ -128,8 +132,8 @@ const Index = () => {
                     <CardTitle className="text-lg">Streak</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{userActivity.currentStreak} days</div>
-                    <p className="opacity-80">{userActivity.currentStreak > 0 ? 'Keep it up!' : 'Start your streak today!'}</p>
+                    <div className="text-2xl font-bold">{userActivity.currentStreak || 0} days</div>
+                    <p className="opacity-80">{(userActivity.currentStreak || 0) > 0 ? 'Keep it up!' : 'Start your streak today!'}</p>
                   </CardContent>
                 </Card>
 
@@ -138,7 +142,7 @@ const Index = () => {
                     <CardTitle className="text-lg">Lessons</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{userActivity.completedLessons}/{userActivity.totalLessons}</div>
+                    <div className="text-2xl font-bold">{safeCompletedLessons} of {safeTotalLessons}</div>
                     <p className="opacity-80">{completionPercentage}% complete</p>
                   </CardContent>
                 </Card>
@@ -148,7 +152,7 @@ const Index = () => {
                     <CardTitle className="text-lg">Level</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{userActivity.currentLevel}</div>
+                    <div className="text-2xl font-bold">{userActivity.currentLevel || 'Beginner'}</div>
                     <p className="opacity-80">
                       {userActivity.currentLevel === 'Beginner' ? 'Level 1' :
                        userActivity.currentLevel === 'Intermediate' ? 'Level 2' :
@@ -176,7 +180,7 @@ const Index = () => {
                         </div>
                         <Progress value={subject.progress || 0} className="h-2" />
                         <div className="text-xs text-gray-500">
-                          {subject.lessonsCompleted || 0}/{subject.totalLessons} lessons completed
+                          {subject.lessonsCompleted || 0} of {subject.totalLessons} lessons completed
                         </div>
                       </div>
                     ))}
@@ -192,14 +196,14 @@ const Index = () => {
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
                         <span>Lessons completed this week</span>
-                        <span className="font-bold">{userActivity.weeklyCompleted || 0}/{userActivity.weeklyGoal}</span>
+                        <span className="font-bold">{safeWeeklyCompleted} of {safeWeeklyGoal}</span>
                       </div>
                       <Progress value={weeklyGoalPercentage} className="h-3" />
                       <div className="flex items-center justify-between text-sm text-gray-600">
                         <span>
-                          {(userActivity.weeklyCompleted || 0) >= userActivity.weeklyGoal 
+                          {safeWeeklyCompleted >= safeWeeklyGoal 
                             ? 'Goal achieved! Great work!' 
-                            : `${userActivity.weeklyGoal - (userActivity.weeklyCompleted || 0)} more lessons to reach your goal!`
+                            : `${safeWeeklyGoal - safeWeeklyCompleted} more lessons to reach your goal!`
                           }
                         </span>
                         <Button size="sm" className="bg-gradient-to-r from-purple-600 to-blue-600" onClick={handleStartLesson}>

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 
 interface UserActivity {
@@ -51,6 +50,7 @@ interface UserActivity {
     lastUpdated: Date;
   }>;
   lastActiveDate: string;
+  weekStartDate: string;
 }
 
 const STORAGE_KEY = 'user_analytics';
@@ -80,7 +80,8 @@ export const useUserAnalytics = () => {
           materialsGenerated: 0,
           quizzesGenerated: 0,
           totalInteractions: 0
-        }
+        },
+        weekStartDate: parsed.weekStartDate || getWeekStart()
       };
     }
     
@@ -108,9 +109,33 @@ export const useUserAnalytics = () => {
         totalInteractions: 0
       },
       pathProgress: [],
-      lastActiveDate: new Date().toDateString()
+      lastActiveDate: new Date().toDateString(),
+      weekStartDate: getWeekStart()
     };
   });
+
+  // Helper function to get the start of the current week (Monday)
+  function getWeekStart(): string {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+    const monday = new Date(now.setDate(diff));
+    return monday.toDateString();
+  }
+
+  // Helper function to check if we need to reset weekly progress
+  const checkWeeklyReset = () => {
+    const currentWeekStart = getWeekStart();
+    if (userActivity.weekStartDate !== currentWeekStart) {
+      setUserActivity(prev => ({
+        ...prev,
+        weeklyCompleted: 0,
+        weekStartDate: currentWeekStart
+      }));
+      return true;
+    }
+    return false;
+  };
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(userActivity));
@@ -144,6 +169,8 @@ export const useUserAnalytics = () => {
     const today = new Date().toDateString();
     
     setUserActivity(prev => {
+      checkWeeklyReset();
+      
       const newQuizScores = [...prev.quizScores, {
         subject,
         score,
@@ -249,6 +276,10 @@ export const useUserAnalytics = () => {
     const today = new Date().toDateString();
     
     setUserActivity(prev => {
+      // Check if we need to reset weekly progress
+      const currentWeekStart = getWeekStart();
+      const shouldResetWeekly = prev.weekStartDate !== currentWeekStart;
+      
       // Update path progress
       const existingPathIndex = prev.pathProgress.findIndex(p => p.pathId === pathId);
       let updatedPathProgress = [...prev.pathProgress];
@@ -308,7 +339,8 @@ export const useUserAnalytics = () => {
           }];
       
       const newCompletedLessons = prev.completedLessons + 1;
-      const newWeeklyCompleted = Math.min(prev.weeklyGoal, prev.weeklyCompleted + 1);
+      const currentWeeklyCompleted = shouldResetWeekly ? 0 : prev.weeklyCompleted;
+      const newWeeklyCompleted = Math.min(prev.weeklyGoal, currentWeeklyCompleted + 1);
       
       let newLevel = 'Beginner';
       const newTotalXP = prev.totalXP + xpEarned;
@@ -321,6 +353,7 @@ export const useUserAnalytics = () => {
         totalXP: newTotalXP,
         completedLessons: newCompletedLessons,
         weeklyCompleted: newWeeklyCompleted,
+        weekStartDate: currentWeekStart,
         currentLevel: newLevel,
         subjects: updatedSubjects,
         pathProgress: updatedPathProgress,
