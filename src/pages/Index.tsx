@@ -35,6 +35,16 @@ const Index = () => {
     );
   }
 
+  // Calculate safe completion percentage
+  const completionPercentage = userActivity.totalLessons > 0 
+    ? Math.round((userActivity.completedLessons / userActivity.totalLessons) * 100) 
+    : 0;
+
+  // Calculate safe weekly goal percentage
+  const weeklyGoalPercentage = userActivity.weeklyGoal > 0 
+    ? (userActivity.weeklyCompleted / userActivity.weeklyGoal) * 100 
+    : 0;
+
   return (
     <AuthContext.Provider value={authProvider}>
       <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50">
@@ -129,7 +139,7 @@ const Index = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">{userActivity.completedLessons}/{userActivity.totalLessons}</div>
-                    <p className="opacity-80">{Math.round((userActivity.completedLessons / userActivity.totalLessons) * 100)}% complete</p>
+                    <p className="opacity-80">{completionPercentage}% complete</p>
                   </CardContent>
                 </Card>
 
@@ -162,11 +172,11 @@ const Index = () => {
                             <span className="text-lg">{subject.icon}</span>
                             <span className="font-medium">{subject.name}</span>
                           </div>
-                          <span className="text-sm text-gray-600">{Math.round(subject.progress)}%</span>
+                          <span className="text-sm text-gray-600">{Math.round(subject.progress || 0)}%</span>
                         </div>
-                        <Progress value={subject.progress} className="h-2" />
+                        <Progress value={subject.progress || 0} className="h-2" />
                         <div className="text-xs text-gray-500">
-                          {subject.lessonsCompleted}/{subject.totalLessons} lessons completed
+                          {subject.lessonsCompleted || 0}/{subject.totalLessons} lessons completed
                         </div>
                       </div>
                     ))}
@@ -182,14 +192,14 @@ const Index = () => {
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
                         <span>Lessons completed this week</span>
-                        <span className="font-bold">{userActivity.weeklyCompleted}/{userActivity.weeklyGoal}</span>
+                        <span className="font-bold">{userActivity.weeklyCompleted || 0}/{userActivity.weeklyGoal}</span>
                       </div>
-                      <Progress value={(userActivity.weeklyCompleted / userActivity.weeklyGoal) * 100} className="h-3" />
+                      <Progress value={weeklyGoalPercentage} className="h-3" />
                       <div className="flex items-center justify-between text-sm text-gray-600">
                         <span>
-                          {userActivity.weeklyCompleted >= userActivity.weeklyGoal 
+                          {(userActivity.weeklyCompleted || 0) >= userActivity.weeklyGoal 
                             ? 'Goal achieved! Great work!' 
-                            : `${userActivity.weeklyGoal - userActivity.weeklyCompleted} more lessons to reach your goal!`
+                            : `${userActivity.weeklyGoal - (userActivity.weeklyCompleted || 0)} more lessons to reach your goal!`
                           }
                         </span>
                         <Button size="sm" className="bg-gradient-to-r from-purple-600 to-blue-600" onClick={handleStartLesson}>

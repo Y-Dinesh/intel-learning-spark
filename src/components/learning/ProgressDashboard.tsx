@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -65,15 +64,15 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ userProgress }) =
 
   // Convert subject data for pie chart with proper time formatting and colors
   const subjectData = userProgress.subjects
-    .filter(subject => subject.lessonsCompleted > 0) // Only show subjects with progress
+    .filter(subject => (subject.lessonsCompleted || 0) > 0) // Only show subjects with progress
     .map(subject => ({
       subject: subject.name,
-      hours: Math.max(0.1, (subject.lessonsCompleted * 0.5)), // Each lesson = 30min, minimum 0.1 for visibility
+      hours: Math.max(0.1, ((subject.lessonsCompleted || 0) * 0.5)), // Each lesson = 30min, minimum 0.1 for visibility
       fill: subject.color,
-      formattedTime: formatHoursMinutes(subject.lessonsCompleted * 0.5)
+      formattedTime: formatHoursMinutes((subject.lessonsCompleted || 0) * 0.5)
     }));
 
-  // If no subjects have progress, show default data
+  // If no subjects have progress, show default data with proper colors
   if (subjectData.length === 0) {
     subjectData.push({
       subject: 'Start Learning',
@@ -118,7 +117,7 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ userProgress }) =
         title: 'Subject Expert', 
         description: 'Complete 80% of a subject', 
         icon: '🎓', 
-        earned: userProgress.subjects.some(s => s.progress >= 80) 
+        earned: userProgress.subjects.some(s => (s.progress || 0) >= 80) 
       },
       { 
         title: 'Consistent Learner', 
@@ -132,9 +131,6 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ userProgress }) =
   const achievements = calculateAchievements();
   const earnedAchievements = achievements.filter(a => a.earned).length;
   const totalWeeklyHours = weeklyData.reduce((sum, day) => sum + day.hours, 0);
-  const averageScore = performanceData.length > 0 && performanceData.some(month => month.score > 0)
-    ? Math.floor(performanceData.reduce((sum, month) => sum + month.score, 0) / performanceData.filter(month => month.score > 0).length)
-    : 0;
 
   // Calculate real quiz and material counts
   const totalQuizzesTaken = userProgress.quizScores.length;
