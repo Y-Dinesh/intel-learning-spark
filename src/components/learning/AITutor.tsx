@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,23 +30,18 @@ const AITutor = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [currentSubject, setCurrentSubject] = useState('');
   const { toast } = useToast();
-  const { addStudySession } = useUserAnalytics();
+  const { addStudySession, addAIMaterial } = useUserAnalytics();
 
   const formatResponse = (text: string) => {
-    // Remove markdown formatting for clean display
+    // Clean up markdown formatting for better display
     let formatted = text
-      // Remove bold formatting
       .replace(/\*\*(.*?)\*\*/g, '$1')
       .replace(/__(.*?)__/g, '$1')
-      // Remove italic formatting
       .replace(/\*(.*?)\*/g, '$1')
       .replace(/_(.*?)_/g, '$1')
-      // Remove headers
       .replace(/^#{1,6}\s+/gm, '')
-      // Remove bullet points and list formatting
       .replace(/^[\*\-\+]\s+/gm, '• ')
       .replace(/^\d+\.\s+/gm, '')
-      // Clean up extra whitespace
       .replace(/\n\s*\n\s*\n/g, '\n\n')
       .trim();
     
@@ -98,7 +94,6 @@ const AITutor = () => {
       const data = await response.json();
       let content = data.choices?.[0]?.message?.content || "I'm sorry, I couldn't process that request. Please try again.";
       
-      // Format the response for clean display
       content = formatResponse(content);
 
       const assistantMessage: Message = {
@@ -111,8 +106,9 @@ const AITutor = () => {
 
       setMessages(prev => [...prev, assistantMessage]);
       
-      // Track study session
+      // Track tutor session and study time
       addStudySession(currentSubject || 'General', 0.25);
+      addAIMaterial(currentSubject || 'General', input.substring(0, 50), 'tutor_session');
       
       toast({
         title: "Response received!",

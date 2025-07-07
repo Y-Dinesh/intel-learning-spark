@@ -1,10 +1,11 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, Clock, Lock, Play, Star, BookOpen, Target, Award } from 'lucide-react';
+import { CheckCircle, Clock, Lock, Play, Star, BookOpen, Target, Award, Trophy } from 'lucide-react';
+import { useUserAnalytics } from '@/hooks/useUserAnalytics';
+import { useToast } from "@/hooks/use-toast";
 
 interface Lesson {
   id: string;
@@ -26,13 +27,13 @@ interface LearningPath {
   estimatedTime: string;
   lessons: Lesson[];
   skills: string[];
+  subject: string;
 }
 
 const LearningPath = () => {
   const [selectedPath, setSelectedPath] = useState<string>('');
   const [currentLesson, setCurrentLesson] = useState<Lesson | null>(null);
-
-  const learningPaths: LearningPath[] = [
+  const [learningPaths, setLearningPaths] = useState<LearningPath[]>([
     {
       id: 'mathematics-fundamentals',
       title: 'Mathematics Fundamentals',
@@ -42,6 +43,7 @@ const LearningPath = () => {
       totalLessons: 12,
       completedLessons: 8,
       estimatedTime: '4 weeks',
+      subject: 'Mathematics',
       skills: ['Arithmetic', 'Basic Algebra', 'Fractions', 'Decimals', 'Percentages'],
       lessons: [
         { id: '1', title: 'Introduction to Numbers', duration: '15 min', completed: true, locked: false, type: 'video' },
@@ -67,6 +69,7 @@ const LearningPath = () => {
       totalLessons: 15,
       completedLessons: 6,
       estimatedTime: '5 weeks',
+      subject: 'Science',
       skills: ['Scientific Method', 'Physics Basics', 'Chemistry Basics', 'Biology Basics'],
       lessons: [
         { id: '1', title: 'The Scientific Method', duration: '20 min', completed: true, locked: false, type: 'video' },
@@ -77,7 +80,6 @@ const LearningPath = () => {
         { id: '6', title: 'Living Organisms', duration: '30 min', completed: true, locked: false, type: 'video' },
         { id: '7', title: 'Cell Structure', duration: '35 min', completed: false, locked: false, type: 'reading' },
         { id: '8', title: 'Energy and Motion', duration: '40 min', completed: false, locked: true, type: 'practice' },
-        // ... more lessons
       ]
     },
     {
@@ -89,6 +91,7 @@ const LearningPath = () => {
       totalLessons: 20,
       completedLessons: 5,
       estimatedTime: '6 weeks',
+      subject: 'History',
       skills: ['Ancient Civilizations', 'Medieval History', 'Modern History', 'Historical Analysis'],
       lessons: [
         { id: '1', title: 'Introduction to History', duration: '15 min', completed: true, locked: false, type: 'video' },
@@ -97,10 +100,12 @@ const LearningPath = () => {
         { id: '4', title: 'Ancient Greece', duration: '40 min', completed: true, locked: false, type: 'reading' },
         { id: '5', title: 'The Roman Empire', duration: '45 min', completed: true, locked: false, type: 'video' },
         { id: '6', title: 'Medieval Europe', duration: '40 min', completed: false, locked: false, type: 'reading' },
-        // ... more lessons
       ]
     }
-  ];
+  ]);
+
+  const { completeLesson, addStudySession } = useUserAnalytics();
+  const { toast } = useToast();
 
   const getLessonIcon = (type: string) => {
     switch (type) {
@@ -121,14 +126,61 @@ const LearningPath = () => {
     }
   };
 
-  const startLesson = (lesson: Lesson) => {
+  const getDurationInHours = (duration: string) => {
+    const minutes = parseInt(duration.split(' ')[0]);
+    return minutes / 60;
+  };
+
+  const startLesson = (lesson: Lesson, pathId: string) => {
     if (lesson.locked) return;
+    
     setCurrentLesson(lesson);
-    // In a real app, this would navigate to the lesson content
+    
+    // Simulate lesson completion after 2 seconds
     setTimeout(() => {
-      // Simulate lesson completion
+      completeLesson(pathId, lesson.id);
+      
+      const hours = getDurationInHours(lesson.duration);
+      addStudySession(getPathSubject(pathId), hours);
+      
+      // Update local state
+      setLearningPaths(prev => prev.map(path => {
+        if (path.id === pathId) {
+          const updatedLessons = path.lessons.map(l => 
+            l.id === lesson.id ? { ...l, completed: true } : l
+          );
+          
+          // Unlock next lesson
+          const currentIndex = path.lessons.findIndex(l => l.id === lesson.id);
+          if (currentIndex < path.lessons.length - 1) {
+            updatedLessons[currentIndex + 1].locked = false;
+          }
+          
+          const completedCount = updatedLessons.filter(l => l.completed).length;
+          const newProgress = (completedCount / path.totalLessons) * 100;
+          
+          return {
+            ...path,
+            lessons: updatedLessons,
+            completedLessons: completedCount,
+            progress: newProgress
+          };
+        }
+        return path;
+      }));
+      
       setCurrentLesson(null);
+      
+      toast({
+        title: "Lesson Completed! 🎉",
+        description: `You earned +25 XP and gained study time!`,
+      });
     }, 2000);
+  };
+
+  const getPathSubject = (pathId: string) => {
+    const path = learningPaths.find(p => p.id === pathId);
+    return path?.subject || 'General';
   };
 
   if (selectedPath) {
@@ -157,7 +209,7 @@ const LearningPath = () => {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
               <div className="text-center">
-                <div className="text-2xl font-bold text-purple-600">{path.progress}%</div>
+                <div className="text-2xl font-bold text-purple-600">{Math.round(path.progress)}%</div>
                 <p className="text-sm text-gray-600">Complete</p>
               </div>
               <div className="text-center">
@@ -224,17 +276,30 @@ const LearningPath = () => {
                   
                   <div>
                     {lesson.completed ? (
-                      <Badge className="bg-green-600">Completed</Badge>
+                      <Badge className="bg-green-600">
+                        <Trophy className="w-3 h-3 mr-1" />
+                        Completed
+                      </Badge>
                     ) : lesson.locked ? (
                       <Badge variant="secondary">Locked</Badge>
                     ) : (
                       <Button 
                         size="sm" 
-                        onClick={() => startLesson(lesson)}
+                        onClick={() => startLesson(lesson, path.id)}
+                        disabled={currentLesson?.id === lesson.id}
                         className="bg-gradient-to-r from-purple-600 to-blue-600"
                       >
-                        <Play className="w-4 h-4 mr-1" />
-                        Start
+                        {currentLesson?.id === lesson.id ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-1" />
+                            Learning...
+                          </>
+                        ) : (
+                          <>
+                            <Play className="w-4 h-4 mr-1" />
+                            Start
+                          </>
+                        )}
                       </Button>
                     )}
                   </div>
@@ -286,7 +351,7 @@ const LearningPath = () => {
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-medium">Progress</span>
-                        <span className="text-sm text-gray-600">{path.progress}%</span>
+                        <span className="text-sm text-gray-600">{Math.round(path.progress)}%</span>
                       </div>
                       <Progress value={path.progress} className="h-2" />
                     </div>

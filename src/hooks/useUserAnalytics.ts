@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 
 interface UserActivity {
@@ -33,8 +34,21 @@ interface UserActivity {
     subject: string;
     topic: string;
     date: Date;
-    type: 'study_material' | 'quiz';
+    type: 'study_material' | 'quiz' | 'tutor_session';
     performance?: number;
+  }>;
+  aiFeatureUsage: {
+    tutorSessions: number;
+    materialsGenerated: number;
+    quizzesGenerated: number;
+    totalInteractions: number;
+  };
+  pathProgress: Array<{
+    pathId: string;
+    subject: string;
+    completedLessons: string[];
+    totalLessons: number;
+    lastUpdated: Date;
   }>;
   lastActiveDate: string;
 }
@@ -56,7 +70,17 @@ export const useUserAnalytics = () => {
           ...material,
           date: new Date(material.date)
         })) || [],
-        dailyActivity: parsed.dailyActivity || []
+        pathProgress: parsed.pathProgress?.map((path: any) => ({
+          ...path,
+          lastUpdated: new Date(path.lastUpdated)
+        })) || [],
+        dailyActivity: parsed.dailyActivity || [],
+        aiFeatureUsage: parsed.aiFeatureUsage || {
+          tutorSessions: 0,
+          materialsGenerated: 0,
+          quizzesGenerated: 0,
+          totalInteractions: 0
+        }
       };
     }
     
@@ -77,6 +101,13 @@ export const useUserAnalytics = () => {
       quizScores: [],
       dailyActivity: [],
       aiMaterialsGenerated: [],
+      aiFeatureUsage: {
+        tutorSessions: 0,
+        materialsGenerated: 0,
+        quizzesGenerated: 0,
+        totalInteractions: 0
+      },
+      pathProgress: [],
       lastActiveDate: new Date().toDateString()
     };
   });
@@ -134,29 +165,50 @@ export const useUserAnalytics = () => {
             xpEarned,
             lessonsCompleted: 0
           }];
+
+      const updatedAIUsage = isAIGenerated ? {
+        ...prev.aiFeatureUsage,
+        quizzesGenerated: prev.aiFeatureUsage.quizzesGenerated + 1,
+        totalInteractions: prev.aiFeatureUsage.totalInteractions + 1
+      } : prev.aiFeatureUsage;
       
       return {
         ...prev,
         totalXP: prev.totalXP + xpEarned,
         quizScores: newQuizScores,
-        dailyActivity: updatedDailyActivity
+        dailyActivity: updatedDailyActivity,
+        aiFeatureUsage: updatedAIUsage
       };
     });
     
     updateStreak();
   };
 
-  const addAIMaterial = (subject: string, topic: string, type: 'study_material' | 'quiz', performance?: number) => {
-    setUserActivity(prev => ({
-      ...prev,
-      aiMaterialsGenerated: [...prev.aiMaterialsGenerated, {
-        subject,
-        topic,
-        date: new Date(),
-        type,
-        performance
-      }]
-    }));
+  const addAIMaterial = (subject: string, topic: string, type: 'study_material' | 'quiz' | 'tutor_session', performance?: number) => {
+    setUserActivity(prev => {
+      const updatedAIUsage = {
+        ...prev.aiFeatureUsage,
+        totalInteractions: prev.aiFeatureUsage.totalInteractions + 1
+      };
+
+      if (type === 'study_material') {
+        updatedAIUsage.materialsGenerated += 1;
+      } else if (type === 'tutor_session') {
+        updatedAIUsage.tutorSessions += 1;
+      }
+
+      return {
+        ...prev,
+        aiMaterialsGenerated: [...prev.aiMaterialsGenerated, {
+          subject,
+          topic,
+          date: new Date(),
+          type,
+          performance
+        }],
+        aiFeatureUsage: updatedAIUsage
+      };
+    });
   };
 
   const addStudySession = (subject: string, duration: number) => {
@@ -192,20 +244,49 @@ export const useUserAnalytics = () => {
     updateStreak();
   };
 
-  const completeLesson = (subject: string) => {
+  const completeLesson = (pathId: string, lessonId: string) => {
     const xpEarned = 25;
     const today = new Date().toDateString();
     
     setUserActivity(prev => {
-      const updatedSubjects = prev.subjects.map(subj => 
-        subj.name === subject 
-          ? {
-              ...subj,
-              lessonsCompleted: subj.lessonsCompleted + 1,
-              progress: Math.min(100, ((subj.lessonsCompleted + 1) / subj.totalLessons) * 100)
-            }
-          : subj
-      );
+      // Update path progress
+      const existingPathIndex = prev.pathProgress.findIndex(p => p.pathId === pathId);
+      let updatedPathProgress = [...prev.pathProgress];
+      
+      if (existingPathIndex >= 0) {
+        updatedPathProgress[existingPathIndex] = {
+          ...updatedPathProgress[existingPathIndex],
+          completedLessons: [...updatedPathProgress[existingPathIndex].completedLessons, lessonId],
+          lastUpdated: new Date()
+        };
+      } else {
+        // Determine subject based on pathId
+        let subject = 'General';
+        if (pathId.includes('mathematics')) subject = 'Mathematics';
+        else if (pathId.includes('science')) subject = 'Science';
+        else if (pathId.includes('history')) subject = 'History';
+        
+        updatedPathProgress.push({
+          pathId,
+          subject,
+          completedLessons: [lessonId],
+          totalLessons: 12, // Default, should be dynamic
+          lastUpdated: new Date()
+        });
+      }
+
+      // Update subject progress based on path completion
+      const updatedSubjects = prev.subjects.map(subject => {
+        const pathsForSubject = updatedPathProgress.filter(p => p.subject === subject.name);
+        const totalCompleted = pathsForSubject.reduce((sum, path) => sum + path.completedLessons.length, 0);
+        const newProgress = Math.min(100, (totalCompleted / subject.totalLessons) * 100);
+        
+        return {
+          ...subject,
+          lessonsCompleted: totalCompleted,
+          progress: newProgress
+        };
+      });
       
       const todayActivity = prev.dailyActivity.find(day => day.date === today);
       const updatedDailyActivity = todayActivity 
@@ -242,6 +323,7 @@ export const useUserAnalytics = () => {
         weeklyCompleted: newWeeklyCompleted,
         currentLevel: newLevel,
         subjects: updatedSubjects,
+        pathProgress: updatedPathProgress,
         dailyActivity: updatedDailyActivity
       };
     });
