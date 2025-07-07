@@ -48,7 +48,17 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ userProgress }) =
   const weeklyData = getWeeklyData();
   const performanceData = getPerformanceData();
 
-  // Helper function to format hours and minutes
+  // Helper function to format hours for tooltips (short format)
+  const formatHoursShort = (totalHours: number) => {
+    if (totalHours === 0) return "0hrs";
+    if (totalHours < 1) {
+      const minutes = Math.round(totalHours * 60);
+      return `${minutes}min`;
+    }
+    return `${totalHours.toFixed(1)}hrs`;
+  };
+
+  // Helper function to format hours and minutes for labels
   const formatHoursMinutes = (totalHours: number) => {
     if (totalHours === 0) return "0min";
     const hours = Math.floor(totalHours);
@@ -62,17 +72,20 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ userProgress }) =
     }
   };
 
-  // Convert subject data for pie chart with proper time formatting and colors
+  // Define distinct colors for subjects
+  const subjectColors = ['#3B82F6', '#10B981', '#8B5CF6', '#EC4899', '#F59E0B', '#EF4444'];
+
+  // Convert subject data for pie chart with proper time formatting and distinct colors
   const subjectData = userProgress.subjects
-    .filter(subject => (subject.lessonsCompleted || 0) > 0) // Only show subjects with progress
-    .map(subject => ({
+    .filter(subject => (subject.lessonsCompleted || 0) > 0)
+    .map((subject, index) => ({
       subject: subject.name,
-      hours: Math.max(0.1, ((subject.lessonsCompleted || 0) * 0.5)), // Each lesson = 30min, minimum 0.1 for visibility
-      fill: subject.color,
+      hours: Math.max(0.1, ((subject.lessonsCompleted || 0) * 0.5)),
+      fill: subjectColors[index % subjectColors.length], // Use distinct colors
       formattedTime: formatHoursMinutes((subject.lessonsCompleted || 0) * 0.5)
     }));
 
-  // If no subjects have progress, show default data with proper colors
+  // If no subjects have progress, show default data
   if (subjectData.length === 0) {
     subjectData.push({
       subject: 'Start Learning',
@@ -132,7 +145,6 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ userProgress }) =
   const earnedAchievements = achievements.filter(a => a.earned).length;
   const totalWeeklyHours = weeklyData.reduce((sum, day) => sum + day.hours, 0);
 
-  // Calculate real quiz and material counts
   const totalQuizzesTaken = userProgress.quizScores.length;
   const averageQuizScore = totalQuizzesTaken > 0 
     ? Math.round(userProgress.quizScores.reduce((sum, quiz) => sum + (quiz.score / quiz.totalQuestions * 100), 0) / totalQuizzesTaken)
@@ -213,16 +225,35 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ userProgress }) =
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={weeklyData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="day" />
-                <YAxis />
-                <Tooltip />
+                <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                <XAxis 
+                  dataKey="day" 
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 12, fill: '#6B7280' }}
+                />
+                <YAxis 
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 12, fill: '#6B7280' }}
+                />
+                <Tooltip 
+                  formatter={(value: number) => [formatHoursShort(value), 'Study Time']}
+                  labelStyle={{ color: '#374151' }}
+                  contentStyle={{ 
+                    backgroundColor: 'white',
+                    border: '1px solid #E5E7EB',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                  }}
+                />
                 <Line 
                   type="monotone" 
                   dataKey="hours" 
                   stroke="#8B5CF6" 
                   strokeWidth={3}
-                  dot={{ fill: '#8B5CF6', strokeWidth: 2, r: 4 }}
+                  dot={{ fill: '#8B5CF6', strokeWidth: 2, r: 5 }}
+                  activeDot={{ r: 6, fill: '#8B5CF6' }}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -253,6 +284,12 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ userProgress }) =
                 </Pie>
                 <Tooltip 
                   formatter={(value: number) => [formatHoursMinutes(value), 'Study Time']}
+                  contentStyle={{ 
+                    backgroundColor: 'white',
+                    border: '1px solid #E5E7EB',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                  }}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -263,16 +300,43 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ userProgress }) =
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>Performance Trend</CardTitle>
+            <CardTitle className="flex items-center space-x-2">
+              <Target className="w-5 h-5 text-green-600" />
+              <span>Performance Trend</span>
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={performanceData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="score" fill="#10B981" radius={[4, 4, 0, 0]} />
+              <BarChart data={performanceData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                <XAxis 
+                  dataKey="month" 
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 12, fill: '#6B7280' }}
+                />
+                <YAxis 
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 12, fill: '#6B7280' }}
+                  domain={[0, 100]}
+                />
+                <Tooltip 
+                  formatter={(value: number) => [`${value}%`, 'Average Score']}
+                  labelStyle={{ color: '#374151' }}
+                  contentStyle={{ 
+                    backgroundColor: 'white',
+                    border: '1px solid #E5E7EB',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                  }}
+                />
+                <Bar 
+                  dataKey="score" 
+                  fill="#10B981" 
+                  radius={[4, 4, 0, 0]}
+                  className="hover:opacity-80 transition-opacity"
+                />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
