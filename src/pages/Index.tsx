@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -20,9 +21,10 @@ const Index = () => {
   const { userActivity, completeLesson } = useUserAnalytics();
 
   const handleStartLesson = () => {
-    const subjects = ['Mathematics', 'Science', 'History', 'Literature'];
+    const subjects = ['mathematics', 'science', 'history', 'literature'];
     const randomSubject = subjects[Math.floor(Math.random() * subjects.length)];
-    completeLesson(randomSubject);
+    const randomLessonId = `lesson-${Date.now()}`;
+    completeLesson(randomSubject, randomLessonId);
   };
 
   if (!authProvider.isAuthenticated) {
