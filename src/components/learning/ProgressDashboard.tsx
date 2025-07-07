@@ -51,6 +51,7 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ userProgress }) =
 
   // Helper function to format hours and minutes
   const formatHoursMinutes = (totalHours: number) => {
+    if (totalHours === 0) return "0min";
     const hours = Math.floor(totalHours);
     const minutes = Math.round((totalHours - hours) * 60);
     if (hours === 0) {
@@ -63,17 +64,29 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ userProgress }) =
   };
 
   // Convert subject data for pie chart with proper time formatting and colors
-  const subjectData = userProgress.subjects.map(subject => ({
-    subject: subject.name,
-    hours: (subject.progress / 100) * 10, // Convert progress to hours studied
-    fill: subject.color,
-    formattedTime: formatHoursMinutes((subject.progress / 100) * 10)
-  }));
+  const subjectData = userProgress.subjects
+    .filter(subject => subject.lessonsCompleted > 0) // Only show subjects with progress
+    .map(subject => ({
+      subject: subject.name,
+      hours: Math.max(0.1, (subject.lessonsCompleted * 0.5)), // Each lesson = 30min, minimum 0.1 for visibility
+      fill: subject.color,
+      formattedTime: formatHoursMinutes(subject.lessonsCompleted * 0.5)
+    }));
+
+  // If no subjects have progress, show default data
+  if (subjectData.length === 0) {
+    subjectData.push({
+      subject: 'Start Learning',
+      hours: 0.1,
+      fill: '#E5E7EB',
+      formattedTime: '0min'
+    });
+  }
 
   // Calculate achievements based on real progress
   const calculateAchievements = () => {
     const aiQuizzes = userProgress.quizScores.filter(q => q.isAIGenerated).length;
-    const aiMaterials = userProgress.aiMaterialsGenerated.length;
+    const aiMaterials = userProgress.aiMaterialsGenerated.filter(m => m.type === 'study_material').length;
     const perfectScores = userProgress.quizScores.filter(q => q.score === q.totalQuestions).length;
     
     return [
@@ -85,25 +98,25 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ userProgress }) =
       },
       { 
         title: 'Quiz Master', 
-        description: '10 perfect quiz scores', 
+        description: '5 perfect quiz scores', 
         icon: '🎯', 
-        earned: perfectScores >= 10 
+        earned: perfectScores >= 5 
       },
       { 
         title: 'AI Explorer', 
-        description: 'Used AI quiz generation 5 times', 
+        description: 'Used AI quiz generation 3 times', 
         icon: '🤖', 
-        earned: aiQuizzes >= 5 
+        earned: aiQuizzes >= 3 
       },
       { 
         title: 'Study Creator', 
-        description: 'Generated 10 AI study materials', 
+        description: 'Generated 5 AI study materials', 
         icon: '📚', 
-        earned: aiMaterials >= 10 
+        earned: aiMaterials >= 5 
       },
       { 
         title: 'Subject Expert', 
-        description: 'Complete a subject path', 
+        description: 'Complete 80% of a subject', 
         icon: '🎓', 
         earned: userProgress.subjects.some(s => s.progress >= 80) 
       },
@@ -119,13 +132,15 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ userProgress }) =
   const achievements = calculateAchievements();
   const earnedAchievements = achievements.filter(a => a.earned).length;
   const totalWeeklyHours = weeklyData.reduce((sum, day) => sum + day.hours, 0);
-  const averageScore = performanceData.length > 0 
-    ? Math.floor(performanceData.reduce((sum, month) => sum + month.score, 0) / performanceData.length)
+  const averageScore = performanceData.length > 0 && performanceData.some(month => month.score > 0)
+    ? Math.floor(performanceData.reduce((sum, month) => sum + month.score, 0) / performanceData.filter(month => month.score > 0).length)
     : 0;
 
-  // AI-generated content stats
-  const aiQuizCount = userProgress.quizScores.filter(q => q.isAIGenerated).length;
-  const aiMaterialCount = userProgress.aiMaterialsGenerated.filter(m => m.type === 'study_material').length;
+  // Calculate real quiz and material counts
+  const totalQuizzesTaken = userProgress.quizScores.length;
+  const averageQuizScore = totalQuizzesTaken > 0 
+    ? Math.round(userProgress.quizScores.reduce((sum, quiz) => sum + (quiz.score / quiz.totalQuestions * 100), 0) / totalQuizzesTaken)
+    : 0;
 
   return (
     <div className="space-y-6">
@@ -147,12 +162,12 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ userProgress }) =
 
         <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-green-700">Average Score</CardTitle>
+            <CardTitle className="text-sm font-medium text-green-700">Quiz Average</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-2xl font-bold text-green-900">{averageScore}%</div>
+                <div className="text-2xl font-bold text-green-900">{averageQuizScore}%</div>
                 <p className="text-sm text-green-600">Quiz performance</p>
               </div>
               <Target className="w-8 h-8 text-green-600" />
@@ -162,13 +177,13 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ userProgress }) =
 
         <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-purple-700">AI Content</CardTitle>
+            <CardTitle className="text-sm font-medium text-purple-700">Quizzes Taken</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-2xl font-bold text-purple-900">{aiQuizCount + aiMaterialCount}</div>
-                <p className="text-sm text-purple-600">Generated items</p>
+                <div className="text-2xl font-bold text-purple-900">{totalQuizzesTaken}</div>
+                <p className="text-sm text-purple-600">Total completed</p>
               </div>
               <BookOpen className="w-8 h-8 text-purple-600" />
             </div>
@@ -222,7 +237,7 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ userProgress }) =
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
               <Calendar className="w-5 h-5 text-blue-600" />
-              <span>Subject Distribution</span>
+              <span>Study Time by Subject</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -241,10 +256,7 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ userProgress }) =
                   ))}
                 </Pie>
                 <Tooltip 
-                  formatter={(value: number, name: string) => [
-                    formatHoursMinutes(value), 
-                    name
-                  ]}
+                  formatter={(value: number) => [formatHoursMinutes(value), 'Study Time']}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -272,33 +284,41 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ userProgress }) =
 
         <Card>
           <CardHeader>
-            <CardTitle>Recent AI Activity</CardTitle>
+            <CardTitle>Recent Quiz Results</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div className="bg-blue-50 p-3 rounded-lg">
-                  <div className="text-2xl font-bold text-blue-600">{aiQuizCount}</div>
-                  <div className="text-sm text-blue-600">AI Quizzes Taken</div>
+                  <div className="text-2xl font-bold text-blue-600">{totalQuizzesTaken}</div>
+                  <div className="text-sm text-blue-600">Total Quizzes</div>
                 </div>
                 <div className="bg-green-50 p-3 rounded-lg">
-                  <div className="text-2xl font-bold text-green-600">{aiMaterialCount}</div>
-                  <div className="text-sm text-green-600">Materials Generated</div>
+                  <div className="text-2xl font-bold text-green-600">{averageQuizScore}%</div>
+                  <div className="text-sm text-green-600">Average Score</div>
                 </div>
               </div>
               
               <div className="space-y-2 max-h-40 overflow-y-auto">
-                {userProgress.aiMaterialsGenerated.slice(-5).reverse().map((material, index) => (
-                  <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                    <div>
-                      <div className="text-sm font-medium">{material.topic}</div>
-                      <div className="text-xs text-gray-600">{material.subject}</div>
+                {userProgress.quizScores.length > 0 ? (
+                  userProgress.quizScores.slice(-5).reverse().map((quiz, index) => (
+                    <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                      <div>
+                        <div className="text-sm font-medium">{quiz.subject}</div>
+                        <div className="text-xs text-gray-600">
+                          {Math.round((quiz.score / quiz.totalQuestions) * 100)}% ({quiz.score}/{quiz.totalQuestions})
+                        </div>
+                      </div>
+                      <Badge variant={quiz.score === quiz.totalQuestions ? 'default' : 'secondary'}>
+                        {quiz.score === quiz.totalQuestions ? '🏆 Perfect' : '📊 Score'}
+                      </Badge>
                     </div>
-                    <Badge variant={material.type === 'quiz' ? 'default' : 'secondary'}>
-                      {material.type === 'quiz' ? '🧠 Quiz' : '📖 Material'}
-                    </Badge>
+                  ))
+                ) : (
+                  <div className="text-center text-gray-500 py-4">
+                    No quizzes taken yet. Start with a quiz to see your results here!
                   </div>
-                ))}
+                )}
               </div>
             </div>
           </CardContent>
